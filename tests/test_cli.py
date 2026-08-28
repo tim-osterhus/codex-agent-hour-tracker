@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_hour_tracker.cli import _resolve_report_range, main
+from agent_hour_tracker.cli import _display_path, _resolve_report_range, main
 
 
 def timestamp(day: int) -> float:
@@ -548,23 +548,33 @@ class CliTests(unittest.TestCase):
         self.assertIn("Duplicate turns: 1", stderr)
         self.assertIn("Event timing fallbacks: 2", stderr)
 
-    def test_malformed_paths_are_escaped_bounded_and_capped(self) -> None:
+    def test_malformed_paths_are_bounded_and_capped(self) -> None:
         file_count = 23
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for index in range(file_count):
-                name = f"bad-{index:02d}-\n\x1b[31m-{'x' * 150}.jsonl"
+                name = f"bad-{index:02d}-{'x' * 180}.jsonl"
                 write_rollout(root, name, [b'{"type":"task_complete",'])
             exit_code, _, stderr = self._run(root)
 
         self.assertEqual(exit_code, 0)
         self.assertIn(f"Malformed lines: {file_count}", stderr)
         self.assertRegex(stderr, r"3 malformed file paths omitted")
-        self.assertNotIn("\x1b", stderr)
         path_lines = [line for line in stderr.splitlines() if line.startswith('  "')]
         self.assertEqual(len(path_lines), 20)
         self.assertTrue(all(len(line) <= 130 for line in path_lines))
-        self.assertTrue(all("\\n" in line for line in path_lines))
+
+    def test_display_path_escapes_control_characters_and_caps_length(self) -> None:
+        path = Path("/tmp") / f"bad-\n\x1b[31m-{'x' * 150}.jsonl"
+
+        displayed = _display_path(path)
+
+        self.assertNotIn("\n", displayed)
+        self.assertNotIn("\x1b", displayed)
+        self.assertIn("\\n", displayed)
+        self.assertIn("\\u001b", displayed)
+        self.assertLessEqual(len(displayed), 130)
+        self.assertTrue(displayed.endswith('..."'))
 
 
 if __name__ == "__main__":
