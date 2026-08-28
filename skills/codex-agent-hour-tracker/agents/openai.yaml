@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Agent Hour Tracker"
+  short_description: "Measure Codex agent hours safely"
+  default_prompt: "Use $codex-agent-hour-tracker to explain or measure an Archive Score."

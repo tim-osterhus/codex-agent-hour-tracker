@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Measure cumulative Codex agent-hours locally, with an inspectable Archive Score.">
+    <title>agenthours.dev: measure your Codex work</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="page-shell">
+      <header class="project-header">
+        <a class="wordmark" href="#challenge" aria-label="agenthours.dev home">agenthours.dev</a>
+        <p class="header-note">LOCAL CODEX TELEMETRY / OPEN METHOD</p>
+      </header>
+
+      <main id="main-content">
+        <section id="challenge" class="section challenge" aria-labelledby="page-title">
+          <div class="challenge-grid">
+            <div class="challenge-copy">
+              <p class="eyebrow">AGENT HOUR TRACKER <span aria-hidden="true">/</span> 30-DAY WINDOW</p>
+              <h1 id="page-title">How many hours a day does your Codex work?</h1>
+              <p class="lede">Several Codex agents can work while your editor feels quiet. Agent Hour Tracker counts completed parallel turns in your local archive.</p>
+
+              <div class="run-panel" aria-labelledby="run-heading">
+                <p class="panel-kicker" id="run-heading">START WITH A SANITIZED SCORE</p>
+                <div class="command-line">
+                  <code>uvx codex-agent-hour-tracker --share</code>
+                  <button class="copy-button" type="button" data-copy-command="uvx codex-agent-hour-tracker --share" aria-controls="copy-status">Copy command</button>
+                </div>
+                <p class="copy-status" id="copy-status" aria-live="polite"></p>
+                <p class="panel-note">Runs against the local Codex session archive. The command needs no account or upload.</p>
+              </div>
+
+              <a class="secondary-link" href="https://github.com/tim-osterhus/codex-agent-hour-tracker">Open the GitHub repository <span aria-hidden="true">↗</span></a>
+            </div>
+
+            <aside class="score-receipt" aria-labelledby="receipt-heading">
+              <div class="receipt-topline">
+                <span id="receipt-heading">ARCHIVE SCORE</span>
+                <span class="receipt-state">LOCAL / SYNTHETIC</span>
+              </div>
+              <p class="receipt-label">Synthetic example</p>
+              <p class="receipt-caption">Fabricated values to show the shape of a share card. Not a personal score.</p>
+              <dl class="score-list">
+                <div>
+                  <dt>Agent-hours / day</dt>
+                  <dd>12.34</dd>
+                </div>
+                <div>
+                  <dt>Total</dt>
+                  <dd>370.20</dd>
+                </div>
+                <div>
+                  <dt>Peak</dt>
+                  <dd>31.80</dd>
+                </div>
+              </dl>
+              <div class="receipt-footer">
+                <span>30 completed days</span>
+                <span>10 active days</span>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="meaning" class="section section-rule" aria-labelledby="meaning-heading">
+          <div class="section-heading">
+            <p class="eyebrow">01 / WHAT THE NUMBER MEANS</p>
+            <h2 id="meaning-heading">Cumulative time, not wall-clock time.</h2>
+          </div>
+          <div class="meaning-grid">
+            <p class="body-copy">Cumulative agent-hours add the completed duration of each agent turn. The tracker sums overlapping turns independently: three agents running for an hour count as three agent-hours, even though only one hour passed on the clock.</p>
+            <div class="definition-note">
+              <span class="note-label">ARCHIVE SCORE</span>
+              <p>Mean cumulative agent-hours per calendar day across exactly the 30 most recent completed local calendar days ending yesterday, including zero-use days.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="run-it" class="section section-rule" aria-labelledby="run-it-heading">
+          <div class="section-heading">
+            <p class="eyebrow">02 / RUN IT LOCALLY</p>
+            <h2 id="run-it-heading">One command. An inspectable result.</h2>
+          </div>
+          <div class="run-grid">
+            <p class="body-copy">Use <code>uvx</code> to run the published CLI without a project checkout. It scans completed root and delegated turns, applies bounded timing rules, and prints the sanitized aggregate card.</p>
+            <ol class="steps">
+              <li><span>01</span><p>Paste the command above into a terminal with your local Codex archive.</p></li>
+              <li><span>02</span><p>Read the score, dates, and diagnostics before deciding whether to share.</p></li>
+              <li><span>03</span><p>Open the <a href="https://pypi.org/project/codex-agent-hour-tracker/">published package</a> or inspect the <a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md">methodology</a> when you want the rules.</p></li>
+            </ol>
+          </div>
+        </section>
+
+        <section id="privacy" class="section section-rule" aria-labelledby="privacy-heading">
+          <div class="section-heading">
+            <p class="eyebrow">03 / PRIVACY BOUNDARY</p>
+            <h2 id="privacy-heading">Measure the archive without opening the conversation.</h2>
+          </div>
+          <div class="privacy-grid">
+            <p class="body-copy">Calculation stays local. The scanner retains bounded timing metadata and does not decode conversation content. There is no upload through this site or the CLI.</p>
+            <div class="boundary-list">
+              <p><span aria-hidden="true">→</span> <strong>Share card:</strong> <code>--share</code> is a bounded aggregate designed for sharing, but it is still an intentional disclosure.</p>
+              <p><span aria-hidden="true">→</span> <strong>Detailed reports:</strong> Full and CSV reports reveal semi-sensitive day-level patterns. Review them before distribution.</p>
+              <p><span aria-hidden="true">→</span> <strong>Source:</strong> The page has no analytics, cookies, external scripts, or data connection.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="methodology" class="section section-rule" aria-labelledby="methodology-heading">
+          <div class="section-heading">
+            <p class="eyebrow">04 / METHODOLOGY</p>
+            <h2 id="methodology-heading">A small set of explicit rules.</h2>
+          </div>
+          <div class="method-grid">
+            <p class="body-copy">The tracker attributes each completed turn to its local start date. It caps event gaps at 30 minutes, uses bounded fallbacks for sparse timelines, and removes duplicate turn IDs before aggregation. The full rules and limitations are public.</p>
+            <ul class="method-links">
+              <li><a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md">Read the methodology <span aria-hidden="true">↗</span></a></li>
+              <li><a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/SECURITY.md">Read the security policy <span aria-hidden="true">↗</span></a></li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="share" class="section section-rule share-section" aria-labelledby="share-heading">
+          <div class="section-heading">
+            <p class="eyebrow">05 / CONTEXT, CAREFULLY</p>
+            <h2 id="share-heading">A big number can be real without being a ranking.</h2>
+          </div>
+          <div class="share-copy">
+            <p>By June 2026, among daily active users at OpenAI, the 99th percentile regularly generated more than 60 hours of Codex agent turns per day across parallel agents.</p>
+            <p class="source-line">That is an official population benchmark, not a claim about ordinary or personal users. <a href="https://openai.com/index/how-agents-are-transforming-work/">Read the source at OpenAI <span aria-hidden="true">↗</span></a></p>
+            <p class="share-invitation">Want to show the result? Post or share a terminal screenshot of this sanitized Archive Score card. It is the bounded aggregate designed for sharing, but its dates, counts, and durations remain an intentional disclosure. Review the image before posting.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p class="footer-mark">agenthours.dev <span aria-hidden="true">/</span> inspectable by default</p>
+        <nav aria-label="Project resources">
+          <a href="https://pypi.org/project/codex-agent-hour-tracker/">PyPI</a>
+          <a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md">Methodology</a>
+          <a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/SECURITY.md">Security</a>
+        </nav>
+      </footer>
+    </div>
+    <script src="app.js" defer></script>
+  </body>
+</html>

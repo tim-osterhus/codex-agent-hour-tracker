@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.6"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: false
+      - name: Install project
+        run: uv sync
+      - name: Run tests
+        run: uv run python -m unittest discover -s tests -v
+
+  platform-smoke:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.6"
+          python-version: "3.14"
+          enable-cache: false
+      - name: Install project
+        run: uv sync
+      - name: Run tests
+        run: uv run python -m unittest discover -s tests -v
+      - name: Smoke test agent-hours entrypoint
+        run: uv run agent-hours --help
+      - name: Smoke test codex-agent-hour-tracker entrypoint
+        run: uv run codex-agent-hour-tracker --help
+
+  package:
+    needs: [test, platform-smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.6"
+          python-version: "3.14"
+          enable-cache: false
+      - name: Build distributions
+        run: uv build --no-create-gitignore
+      - name: Inspect distributions
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import tarfile
+          import zipfile
+
+          dist = Path("dist")
+          wheels = sorted(dist.glob("*.whl"))
+          sdists = sorted(dist.glob("*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit(
+                  f"expected exactly one wheel and one sdist, got {wheels!r} and {sdists!r}"
+              )
+          entries = sorted(dist.iterdir())
+          if entries != sorted(wheels + sdists):
+              raise SystemExit(
+                  f"dist must contain exactly the wheel and sdist, got {entries!r}"
+              )
+
+          forbidden_parts = {
+              ".cache",
+              ".codex",
+              ".coverage",
+              ".dev.vars",
+              ".env",
+              ".mypy_cache",
+              ".pytest_cache",
+              ".ruff_cache",
+              ".tox",
+              ".venv",
+              ".wrangler",
+              "cache",
+              "caches",
+              "env",
+              "htmlcov",
+              "nox",
+              "reports",
+              "sessions",
+              "venv",
+          }
+
+          def validate(name: str, members: list[str]) -> None:
+              bad: list[str] = []
+              for member in members:
+                  path = PurePosixPath(member)
+                  parts = path.parts
+                  basename = parts[-1] if parts else ""
+                  lowered = basename.lower()
+                  if (
+                      any(part in forbidden_parts for part in parts)
+                      or ("docs" in parts and "superpowers" in parts)
+                      or lowered.startswith(".env")
+                      or lowered.endswith((".pyc", ".pyo"))
+                      or "__pycache__" in parts
+                      or any("cache" in part.lower() for part in parts)
+                      or lowered in {".envrc", "local.env", "config.local"}
+                  ):
+                      bad.append(member)
+              if bad:
+                  raise SystemExit(f"forbidden members in {name}: {bad!r}")
+
+          with zipfile.ZipFile(wheels[0]) as archive:
+              validate(wheels[0].name, archive.namelist())
+          with tarfile.open(sdists[0], "r:gz") as archive:
+              sdist_members = archive.getnames()
+              validate(sdists[0].name, sdist_members)
+          root = PurePosixPath(sdist_members[0]).parts[0]
+          expected_docs = {
+              f"{root}/README.md",
+              f"{root}/LICENSE",
+              f"{root}/SECURITY.md",
+              f"{root}/docs/methodology.md",
+          }
+          missing_docs = expected_docs.difference(sdist_members)
+          if missing_docs:
+              raise SystemExit(f"missing expected public docs in sdist: {sorted(missing_docs)!r}")
+          print(f"inspected {wheels[0].name} and {sdists[0].name}")
+          PY
+      - name: Smoke test wheel entrypoints in isolation
+        run: |
+          uv run --isolated --no-project --with dist/*.whl agent-hours --help
+          uv run --isolated --no-project --with dist/*.whl codex-agent-hour-tracker --help

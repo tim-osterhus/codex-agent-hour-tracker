@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codex-agent-hour-tracker"
+version = "0.1.0"
+description = "Measure cumulative Codex agent runtime without decoding conversation content."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Tim Osterhus", email = "tim@millrace.ai" },
+]
+keywords = ["codex", "agents", "analytics", "privacy"]
+dependencies = [
+    "tzlocal>=5.3,<6",
+    "tzdata>=2025.2; platform_system == 'Windows'",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[project.urls]
+Homepage = "https://agenthours.dev"
+Repository = "https://github.com/tim-osterhus/codex-agent-hour-tracker"
+Issues = "https://github.com/tim-osterhus/codex-agent-hour-tracker/issues"
+
+[project.scripts]
+agent-hours = "agent_hour_tracker.cli:main"
+codex-agent-hour-tracker = "agent_hour_tracker.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_hour_tracker"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/SECURITY.md",
+    "/docs",
+    "/pyproject.toml",
+]

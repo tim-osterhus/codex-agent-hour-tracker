@@ -1,0 +1,16 @@
+/reports/
+/dist/
+/build/
+/docs/superpowers/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+.pytest_cache/
+.coverage
+.env
+.env.*
+!.env.example
+.dev.vars
+.wrangler/
