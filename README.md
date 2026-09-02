@@ -25,11 +25,13 @@ Peak day: 4.00
 Completed turns: 12
 Active days: 10/30
 
-Archive Score | methodology v1 | tracker v0.1.0
+Archive Score | methodology v1 | tracker v0.1.1
 Calculated locally. No conversation content uploaded.
 ```
 
 Agent-hours are cumulative completed-turn durations. If turns overlap, the tracker sums each turn independently. The total measures cumulative runtime, not elapsed wall-clock time.
+
+Normal text reports also show the count, mean, and median active duration for top-level human-initiated turns. Those duration statistics use minutes.
 
 ## Install
 
@@ -70,7 +72,7 @@ Git ignores the `reports/` directory. Do not redirect generated output to tracke
 
 The canonical Archive Score and a report without date bounds cover the 30 most recent completed local calendar days ending yesterday. Calendar days include days with zero use. If today is March 1, the window is January 30 through February 28.
 
-The scanner bounds each event gap at 30 minutes and uses bounded duration fallbacks. It attributes turns to their payload `started_at` date, excludes batch files, and deduplicates turns globally. See the [methodology](docs/methodology.md) for exact rules and limitations.
+The scanner bounds each event gap at 30 minutes and uses bounded duration fallbacks. It attributes turns to their payload `started_at` date, excludes batch files, and deduplicates turns globally. Root-only statistics classify only sessions with a `cli`, `vscode`, or `user` source; delegated, unknown, malformed, or conflicting sources are excluded from that sample while remaining in non-batch all-turn totals. See the [methodology](docs/methodology.md) for exact rules and limitations.
 
 ## Privacy boundary
 

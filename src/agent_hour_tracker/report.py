@@ -18,6 +18,15 @@ def render_text(report: ReportMetrics) -> str:
         "AGENT-HOUR SUMMARY",
         f"Calendar days:{len(days):>16}",
         f"Total agent-hours:{report.total_agent_hours:>12.2f}",
+        f"Human-initiated top-level turns:{report.human_initiated_top_level_turns:>8}",
+        (
+            "Mean human-initiated top-level duration: "
+            f"{report.mean_human_initiated_turn_seconds / 60.0:.2f} min"
+        ),
+        (
+            "Median human-initiated top-level duration: "
+            f"{report.median_human_initiated_turn_seconds / 60.0:.2f} min"
+        ),
         f"Mean / calendar day:{report.mean_per_calendar_day:>10.2f} h",
         f"Mean / active day:{report.mean_per_active_day:>13.2f} h",
         f"Median daily agent-hours:{report.median_agent_hours:>5.2f} h",
@@ -53,8 +62,10 @@ def render_share(
     lines = [
         "CODEX AGENT-HOUR SCORE",
         "",
-        f"{day_count} complete calendar days | "
-        f"{days[0].date.isoformat()} to {days[-1].date.isoformat()}",
+        (
+            f"{day_count} complete calendar days | "
+            f"{days[0].date.isoformat()} to {days[-1].date.isoformat()}"
+        ),
         "-" * 53,
         f"Agent-hours/day: {report.mean_per_calendar_day:.2f}",
         f"Total agent-hours: {report.total_agent_hours:.2f}",
@@ -62,8 +73,10 @@ def render_share(
         f"Completed turns: {completed_turns}",
         f"Active days: {report.active_days}/{day_count}",
         "",
-        f"Archive Score | methodology v{methodology_version} | "
-        f"tracker v{tracker_version}",
+        (
+            f"Archive Score | methodology v{methodology_version} | "
+            f"tracker v{tracker_version}"
+        ),
         "Calculated locally. No conversation content uploaded.",
     ]
     return "\n".join(lines) + "\n"

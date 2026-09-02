@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from collections import OrderedDict
+from dataclasses import replace
 from datetime import date, timedelta
 
 from agent_hour_tracker.metrics import DailyStat, ReportMetrics
@@ -37,6 +38,9 @@ def report_fixture() -> ReportMetrics:
                 ("60+", 0),
             )
         ),
+        human_initiated_top_level_turns=3,
+        mean_human_initiated_turn_seconds=90.0,
+        median_human_initiated_turn_seconds=120.0,
     )
 
 
@@ -63,6 +67,9 @@ def share_report_fixture() -> ReportMetrics:
         days_above_15_hours=1,
         days_above_60_hours=0,
         histogram=OrderedDict(),
+        human_initiated_top_level_turns=42,
+        mean_human_initiated_turn_seconds=123.0,
+        median_human_initiated_turn_seconds=120.0,
     )
 
 
@@ -102,6 +109,9 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Median daily agent-hours:", output)
         self.assertIn("P95 daily agent-hours:", output)
         self.assertIn("Maximum daily agent-hours:", output)
+        self.assertIn("Human-initiated top-level turns:", output)
+        self.assertIn("Mean human-initiated top-level duration:", output)
+        self.assertIn("Median human-initiated top-level duration:", output)
         self.assertIn("Active days:", output)
         self.assertIn("Zero days:", output)
         self.assertIn("Days above 15 hours:", output)
@@ -113,6 +123,20 @@ class ReportTests(unittest.TestCase):
         self.assertIn("DAILY DISTRIBUTION", output)
         for label, count in report_fixture().histogram.items():
             self.assertIn(f"{label:<28}{count}", output)
+
+    def test_text_renders_root_duration_statistics_in_minutes(self) -> None:
+        report = replace(
+            report_fixture(),
+            human_initiated_top_level_turns=3,
+            mean_human_initiated_turn_seconds=90.0,
+            median_human_initiated_turn_seconds=120.0,
+        )
+
+        output = render_text(report)
+
+        self.assertIn("Human-initiated top-level turns:       3", output)
+        self.assertIn("Mean human-initiated top-level duration: 1.50 min", output)
+        self.assertIn("Median human-initiated top-level duration: 2.00 min", output)
 
     def test_csv_has_stable_header_and_six_decimal_hours(self) -> None:
         self.assertEqual(

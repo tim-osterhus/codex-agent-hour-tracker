@@ -71,7 +71,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     scan_result = scan_sessions(sessions_dir)
-    report = build_report_metrics(scan_result.turns, start, end, timezone)
+    report = build_report_metrics(
+        scan_result.turns,
+        start,
+        end,
+        timezone,
+        root_turns=scan_result.root_turns,
+    )
     if arguments.share:
         sys.stdout.write(render_share(report, __version__, METHODOLOGY_VERSION))
     elif arguments.format == "csv":
@@ -190,7 +196,7 @@ def _resolve_timezone(value: str | None, stderr: TextIO) -> ZoneInfo | None:
 def _discover_timezone_name() -> tuple[str, bool]:
     try:
         timezone_name = tzlocal.get_localzone_name()
-    except Exception:
+    except Exception:  # noqa: BLE001 - platform-specific discovery may fail broadly
         return "UTC", True
     if not isinstance(timezone_name, str) or not timezone_name:
         return "UTC", True

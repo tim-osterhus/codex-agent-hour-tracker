@@ -5,7 +5,7 @@ import io
 import json
 import tempfile
 import unittest
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,7 +13,7 @@ from agent_hour_tracker.cli import _display_path, _resolve_report_range, main
 
 
 def timestamp(day: int) -> float:
-    return datetime(2026, 6, day, tzinfo=timezone.utc).timestamp()
+    return datetime(2026, 6, day, tzinfo=UTC).timestamp()
 
 
 def event_rollout(source: object = "cli") -> list[dict[str, object]]:
@@ -24,7 +24,7 @@ def event_rollout(source: object = "cli") -> list[dict[str, object]]:
             (
                 {
                     "timestamp": datetime.fromtimestamp(
-                        started_timestamp, timezone.utc
+                        started_timestamp, UTC
                     ).isoformat().replace("+00:00", "Z"),
                     "type": "event_msg",
                     "payload": {
@@ -35,13 +35,13 @@ def event_rollout(source: object = "cli") -> list[dict[str, object]]:
                 },
                 {
                     "timestamp": datetime.fromtimestamp(
-                        started_timestamp + 1_800, timezone.utc
+                        started_timestamp + 1_800, UTC
                     ).isoformat().replace("+00:00", "Z"),
                     "type": "message",
                 },
                 {
                     "timestamp": datetime.fromtimestamp(
-                        started_timestamp + 3_600, timezone.utc
+                        started_timestamp + 3_600, UTC
                     ).isoformat().replace("+00:00", "Z"),
                     "type": "event_msg",
                     "payload": {
@@ -262,6 +262,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(stderr, "")
         self.assertIn("AGENT-HOUR SUMMARY", stdout)
+        self.assertIn("Human-initiated top-level turns:       2", stdout)
+        self.assertIn("Mean human-initiated top-level duration: 60.00 min", stdout)
+        self.assertIn("Median human-initiated top-level duration: 60.00 min", stdout)
 
     def test_share_diagnostics_are_aggregate_only_and_redact_markers(self) -> None:
         path_marker = "SHARE_PRIVATE_PATH_MARKER"

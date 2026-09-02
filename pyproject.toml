@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codex-agent-hour-tracker"
-version = "0.1.0"
+version = "0.1.1"
 description = "Measure cumulative Codex agent runtime without decoding conversation content."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -66,8 +66,10 @@ class ScannerTests(unittest.TestCase):
         second = ScanResult()
 
         self.assertEqual(first.turns, [])
+        self.assertEqual(first.root_turns, [])
         self.assertEqual(first.diagnostics.files_scanned, 0)
         self.assertIsNot(first.turns, second.turns)
+        self.assertIsNot(first.root_turns, second.root_turns)
         self.assertIsNot(first.diagnostics, second.diagnostics)
 
     def test_recorded_duration_pairs_completion_to_turn_id(self) -> None:
@@ -86,7 +88,92 @@ class ScannerTests(unittest.TestCase):
                 CompletedTurn(started_at=200.0, duration_seconds=2.5),
             ],
         )
+        self.assertEqual(result.root_turns, result.turns)
         self.assertEqual(result.diagnostics.files_scanned, 1)
+
+    def test_only_root_sources_enter_root_turns(self) -> None:
+        cases = (
+            ("cli", True),
+            ("vscode", True),
+            ("user", True),
+            ({"subagent": True}, False),
+            ("mystery", False),
+            ({"unrelated": True}, False),
+        )
+
+        for index, (source, is_root) in enumerate(cases):
+            with self.subTest(source=source):
+                result, _ = self._scan(
+                    {"type": "session_meta", "source": source},
+                    self._start(f"turn-{index}", 100.0 + index),
+                    self._complete(f"turn-{index}", duration_ms=1000),
+                )
+
+                expected = [CompletedTurn(100.0 + index, 1.0)]
+                self.assertEqual(result.turns, expected)
+                self.assertEqual(result.root_turns, expected if is_root else [])
+
+    def test_batch_wins_over_root_or_delegated_source_for_both_samples(self) -> None:
+        result, _ = self._scan(
+            {"type": "session_meta", "source": {"subagent": True}},
+            {"type": "session_meta", "source": {"exec": True}},
+            self._start("turn", 100.0),
+            self._complete("turn", duration_ms=1000),
+        )
+
+        self.assertEqual(result.turns, [])
+        self.assertEqual(result.root_turns, [])
+        self.assertEqual(result.diagnostics.excluded_batch_turns, 1)
+
+    def test_mixed_nonbatch_sources_are_conflicting_and_not_roots(self) -> None:
+        result, _ = self._scan(
+            {"type": "session_meta", "source": "cli"},
+            {"type": "session_meta", "source": {"subagent": True}},
+            self._start("turn", 100.0),
+            self._complete("turn", duration_ms=1000),
+        )
+
+        self.assertEqual(result.turns, [CompletedTurn(100.0, 1.0)])
+        self.assertEqual(result.root_turns, [])
+
+    def test_malformed_source_is_nonbatch_but_not_root(self) -> None:
+        result, _ = self._scan(
+            b'{"type":"session_meta","source":',
+            self._start("turn", 100.0),
+            self._complete("turn", duration_ms=1000),
+        )
+
+        self.assertEqual(result.turns, [CompletedTurn(100.0, 1.0)])
+        self.assertEqual(result.root_turns, [])
+        self.assertEqual(result.diagnostics.malformed_lines, 1)
+
+    def test_root_deduplication_is_independent_of_all_turn_ranking(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            self._write_file(
+                directory,
+                "delegated.jsonl",
+                [
+                    {"type": "session_meta", "source": {"subagent": True}},
+                    self._start("same", 100.0),
+                    self._complete("same", duration_ms=60000),
+                ],
+            )
+            self._write_file(
+                directory,
+                "root.jsonl",
+                [
+                    {"type": "session_meta", "source": "cli"},
+                    self._start("same", 100.0),
+                    self._complete("same", duration_ms=30000),
+                ],
+            )
+
+            result = scan_sessions(directory)
+
+        self.assertEqual(result.turns, [CompletedTurn(100.0, 60.0)])
+        self.assertEqual(result.root_turns, [CompletedTurn(100.0, 30.0)])
+        self.assertEqual(result.diagnostics.duplicate_turns, 1)
 
     def test_completed_timestamp_fallback_uses_completion_started_at(self) -> None:
         result, _ = self._scan(
@@ -127,6 +214,19 @@ class ScannerTests(unittest.TestCase):
 
         self.assertEqual(result.turns, [])
         self.assertEqual(result.diagnostics.excluded_batch_turns, 1)
+
+    def test_batch_source_strings_exclude_valid_completed_turn(self) -> None:
+        for source in ("exec", "batch", "codex_exec"):
+            with self.subTest(source=source):
+                result, _ = self._scan(
+                    {"type": "session_meta", "source": source},
+                    self._start("one", 100.0),
+                    self._complete("one", duration_ms=1000),
+                )
+
+                self.assertEqual(result.turns, [])
+                self.assertEqual(result.root_turns, [])
+                self.assertEqual(result.diagnostics.excluded_batch_turns, 1)
 
     def test_unknown_source_is_counted_once_per_file_and_included(self) -> None:
         result, _ = self._scan(
@@ -429,6 +529,7 @@ class ScannerTests(unittest.TestCase):
             result = scan_sessions(directory)
 
         self.assertEqual(result.turns, [CompletedTurn(1_780_272_000, 60.0)])
+        self.assertEqual(result.root_turns, [CompletedTurn(1_780_272_000, 60.0)])
         self.assertEqual(result.diagnostics.excluded_batch_turns, 1)
         self.assertEqual(result.diagnostics.duplicate_turns, 0)
 

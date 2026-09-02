@@ -50,6 +50,9 @@ class ReportMetrics:
     days_above_15_hours: int
     days_above_60_hours: int
     histogram: OrderedDict[str, int]
+    human_initiated_top_level_turns: int = 0
+    mean_human_initiated_turn_seconds: float = 0.0
+    median_human_initiated_turn_seconds: float = 0.0
 
 
 def build_report_metrics(
@@ -57,6 +60,7 @@ def build_report_metrics(
     start: date,
     end: date,
     timezone: ZoneInfo,
+    root_turns: list[CompletedTurn] | None = None,
 ) -> ReportMetrics:
     """Build daily and distribution metrics for an inclusive date range.
 
@@ -70,6 +74,9 @@ def build_report_metrics(
 
     if end < start:
         raise ValueError("end date must not precede start date")
+
+    if root_turns is None:
+        root_turns = []
 
     hours_by_date: dict[date, float] = {}
     turns_by_date: dict[date, int] = {}
@@ -96,6 +103,12 @@ def build_report_metrics(
         for day in hours_by_date
     )
     values = [day.agent_hours for day in days]
+    root_durations = [
+        turn.duration_seconds
+        for turn in root_turns
+        if _local_start_date(turn.started_at, timezone, start, end) is not None
+    ]
+    root_count = len(root_durations)
     total_agent_hours = sum(values)
     active_days = sum(value > 0.0 for value in values)
     zero_days = sum(value == 0.0 for value in values)
@@ -116,7 +129,27 @@ def build_report_metrics(
         days_above_15_hours=sum(value > 15.0 for value in values),
         days_above_60_hours=sum(value > 60.0 for value in values),
         histogram=_build_histogram(values),
+        human_initiated_top_level_turns=root_count,
+        mean_human_initiated_turn_seconds=(
+            sum(root_durations) / root_count if root_count else 0.0
+        ),
+        median_human_initiated_turn_seconds=(
+            float(median(root_durations)) if root_durations else 0.0
+        ),
     )
+
+
+def _local_start_date(
+    started_at: float,
+    timezone: ZoneInfo,
+    start: date,
+    end: date,
+) -> date | None:
+    try:
+        local_date = datetime.fromtimestamp(started_at, timezone).date()
+    except (OSError, OverflowError, ValueError):
+        return None
+    return local_date if start <= local_date <= end else None
 
 
 def _percentile_95(values: list[float]) -> float:

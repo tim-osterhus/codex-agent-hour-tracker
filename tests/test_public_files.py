@@ -10,7 +10,6 @@ import unittest
 from html.parser import HTMLParser
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = PROJECT_ROOT / "skills" / "codex-agent-hour-tracker"
 SITE_ROOT = PROJECT_ROOT / "site"

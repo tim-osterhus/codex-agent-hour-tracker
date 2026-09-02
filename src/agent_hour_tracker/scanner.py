@@ -9,7 +9,7 @@ import re
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 __all__ = [
@@ -68,10 +68,11 @@ class ScanDiagnostics:
 
 @dataclass(slots=True)
 class ScanResult:
-    """Completed turns and diagnostics from a session-directory scan."""
+    """Completed turns, root turns, and diagnostics from a directory scan."""
 
     turns: list[CompletedTurn] = field(default_factory=list)
     diagnostics: ScanDiagnostics = field(default_factory=ScanDiagnostics)
+    root_turns: list[CompletedTurn] = field(default_factory=list)
 
 
 def scan_sessions(sessions_dir: Path) -> ScanResult:
@@ -84,6 +85,7 @@ def scan_sessions(sessions_dir: Path) -> ScanResult:
 
     diagnostics = ScanDiagnostics()
     best_turns: dict[object, _ParsedTurn] = {}
+    best_root_turns: dict[object, _ParsedTurn] = {}
 
     for session_file in sorted(sessions_dir.rglob("*.jsonl")):
         diagnostics.files_scanned += 1
@@ -101,12 +103,21 @@ def scan_sessions(sessions_dir: Path) -> ScanResult:
                 diagnostics.duplicate_turns += 1
                 if _is_better_observation(parsed_turn, previous):
                     best_turns[parsed_turn.turn_id] = parsed_turn
+            if source_kind == "root":
+                for parsed_turn in file_turns:
+                    previous = best_root_turns.get(parsed_turn.turn_id)
+                    if previous is None or _is_better_observation(
+                        parsed_turn, previous
+                    ):
+                        best_root_turns[parsed_turn.turn_id] = parsed_turn
         for source_label in sorted(unknown_labels):
             diagnostics.unknown_sources[source_label] += 1
 
     ordered_turns = sorted(best_turns.values(), key=_turn_sort_key)
+    ordered_root_turns = sorted(best_root_turns.values(), key=_turn_sort_key)
     return ScanResult(
         turns=[parsed_turn.turn for parsed_turn in ordered_turns],
+        root_turns=[parsed_turn.turn for parsed_turn in ordered_root_turns],
         diagnostics=diagnostics,
     )
 
@@ -207,6 +218,11 @@ def _scan_file(
                     except (RecursionError, TypeError, ValueError, OverflowError):
                         line_malformed = True
                 if line_malformed:
+                    if envelope.top_level_type == b"session_meta":
+                        source_kind = _merge_source_kind(
+                            source_kind, "unknown"
+                        )
+                        unknown_labels.add("unknown:malformed")
                     diagnostics.malformed_lines += 1
                     diagnostics.malformed_files.add(session_file)
     except OSError:
@@ -786,7 +802,7 @@ def _top_level_timestamp(raw_line: bytes) -> float | None:
             else timestamp_text
         )
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         converted = parsed.timestamp()
     except (UnicodeDecodeError, ValueError, OverflowError, OSError):
         return None
@@ -863,11 +879,11 @@ def _hashable_turn_id(value: object) -> bool:
 def _merge_source_kind(current_kind: str, incoming_kind: str) -> str:
     if current_kind == "batch" or incoming_kind == "batch":
         return "batch"
-    if current_kind == "interactive" or incoming_kind == "interactive":
-        return "interactive"
-    if current_kind == "unknown" or incoming_kind == "unknown":
-        return "unknown"
-    return "unseen"
+    if current_kind == "unseen":
+        return incoming_kind
+    if incoming_kind == "unseen" or current_kind == incoming_kind:
+        return current_kind
+    return "conflicting"
 
 
 def _classify_source_span(
@@ -903,7 +919,7 @@ def _classify_source_span(
             if normalized in {"exec", "batch", "codex_exec"}:
                 return "batch", None
             if normalized in {"vscode", "cli", "user"}:
-                return "interactive", None
+                return "root", None
         return "unknown", _unknown_source_label(
             raw_line, source_start, source_end, "string"
         )
@@ -913,7 +929,7 @@ def _classify_source_span(
             if b"exec" in keys or b"batch" in keys:
                 return "batch", None
             if b"subagent" in keys:
-                return "interactive", None
+                return "delegated", None
         return "unknown", _unknown_source_label(
             raw_line, source_start, source_end, "mapping"
         )

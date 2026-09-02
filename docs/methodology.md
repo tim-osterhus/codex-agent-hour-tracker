@@ -18,15 +18,17 @@ An explicit `--start` or `--end` date defines an inclusive range. Turns whose lo
 
 The canonical Archive Score and an unbounded report use the 30 most recent completed local calendar days ending yesterday. The range is inclusive. If today is March 1, the range is January 30 through February 28. `--share` always uses this window and rejects explicit date bounds and report formats.
 
+Root-turn duration statistics use the same inclusive local-start-date range and selected timezone. A root sample includes valid zero-duration turns. An empty root sample reports count 0 and mean and median 0.00 minutes. The normal text report shows the sample count and its mean and median active durations in minutes; these statistics do not change the all-turn daily rows or agent-hour totals.
+
 ## Session selection and batch exclusion
 
-The scanner includes interactive root and delegated subagent turns. The scanner classifies a session file as batch when its session metadata identifies `exec`, `batch`, or `codex_exec`, or a direct source mapping contains an `exec` or `batch` key. A batch classification excludes every completed turn found in that file.
+The scanner includes non-batch turns in the existing all-turn totals. A root session has a source string of `cli`, `vscode`, or `user`. A delegated session has a direct source mapping with a `subagent` key. The scanner classifies a session file as batch when its session metadata identifies the source strings `exec`, `batch`, or `codex_exec`, or a direct source mapping contains an `exec` or `batch` key. Batch wins if present and excludes every completed turn found in that file.
 
-Unknown source types remain eligible for aggregation. The normal report emits a bounded fingerprint label for an unknown source. Share diagnostics omit that label.
+Unknown, missing, malformed, and conflicting source evidence remains eligible for non-batch all-turn aggregation, but is excluded from root-only statistics. Mixed non-batch source evidence never enters the root sample. The normal report emits a bounded fingerprint label for an unknown source. Share diagnostics omit that label.
 
 ## Global deduplication and ranking
 
-The scanner excludes batch files before deduplicating observations globally by `turn_id` across all session files. One observation remains for each ID. The ranking uses event-timing usability first:
+The scanner excludes batch files before deduplicating observations globally by `turn_id` across all session files. One observation remains for each ID in the existing all-turn list. Root observations are deduplicated separately, after batch exclusion, so a delegated duplicate cannot hide a root observation in root-only statistics. The all-turn ranking is unchanged and uses event-timing usability first:
 
 1. Prefer an observation with usable event timing.
 2. Prefer the greater duration.

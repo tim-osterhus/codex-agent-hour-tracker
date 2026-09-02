@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 from collections import OrderedDict
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 from agent_hour_tracker.metrics import DailyStat, build_report_metrics
@@ -10,7 +10,7 @@ from agent_hour_tracker.scanner import CompletedTurn
 
 
 def timestamp(year: int, month: int, day: int, hour: int = 0) -> float:
-    return datetime(year, month, day, hour, tzinfo=timezone.utc).timestamp()
+    return datetime(year, month, day, hour, tzinfo=UTC).timestamp()
 
 
 class MetricsTests(unittest.TestCase):
@@ -59,6 +59,96 @@ class MetricsTests(unittest.TestCase):
 
         self.assertEqual(report.days[0].date, date(2026, 6, 1))
         self.assertEqual(report.days[0].agent_hours, 2.0)
+
+    def test_root_statistics_use_root_turns_without_changing_daily_metrics(self) -> None:
+        all_turns = [
+            CompletedTurn(timestamp(2026, 6, 1), 10),
+            CompletedTurn(timestamp(2026, 6, 2), 20),
+            CompletedTurn(timestamp(2026, 6, 3), 30),
+        ]
+        root_turns = [
+            CompletedTurn(timestamp(2026, 6, 1), 60),
+            CompletedTurn(timestamp(2026, 6, 2), 120),
+            CompletedTurn(timestamp(2026, 6, 3), 180),
+        ]
+
+        report = build_report_metrics(
+            all_turns,
+            date(2026, 6, 1),
+            date(2026, 6, 3),
+            ZoneInfo("UTC"),
+            root_turns=root_turns,
+        )
+
+        self.assertEqual(report.days[0].completed_turns, 1)
+        self.assertAlmostEqual(report.total_agent_hours, 60 / 3600)
+        self.assertEqual(report.human_initiated_top_level_turns, 3)
+        self.assertAlmostEqual(report.mean_human_initiated_turn_seconds, 120)
+        self.assertAlmostEqual(report.median_human_initiated_turn_seconds, 120)
+
+    def test_root_statistics_use_even_sample_median_and_include_zero_duration(self) -> None:
+        root_turns = [
+            CompletedTurn(timestamp(2026, 6, 1), 0),
+            CompletedTurn(timestamp(2026, 6, 2), 120),
+            CompletedTurn(timestamp(2026, 6, 3), 240),
+            CompletedTurn(timestamp(2026, 6, 4), 360),
+        ]
+
+        report = build_report_metrics(
+            [],
+            date(2026, 6, 1),
+            date(2026, 6, 4),
+            ZoneInfo("UTC"),
+            root_turns=root_turns,
+        )
+
+        self.assertEqual(report.human_initiated_top_level_turns, 4)
+        self.assertAlmostEqual(report.mean_human_initiated_turn_seconds, 180)
+        self.assertAlmostEqual(report.median_human_initiated_turn_seconds, 180)
+        self.assertEqual(report.total_agent_hours, 0.0)
+
+    def test_root_statistics_filter_by_local_start_date(self) -> None:
+        root_turns = [
+            CompletedTurn(timestamp(2026, 6, 1, 12), 60),
+            CompletedTurn(timestamp(2026, 6, 2, 12), 180),
+        ]
+
+        report = build_report_metrics(
+            [],
+            date(2026, 6, 1),
+            date(2026, 6, 1),
+            ZoneInfo("Pacific/Honolulu"),
+            root_turns=root_turns,
+        )
+
+        self.assertEqual(report.human_initiated_top_level_turns, 1)
+        self.assertEqual(report.mean_human_initiated_turn_seconds, 60)
+        self.assertEqual(report.median_human_initiated_turn_seconds, 60)
+
+    def test_no_root_turns_have_zero_root_statistics(self) -> None:
+        report = build_report_metrics(
+            [],
+            date(2026, 6, 1),
+            date(2026, 6, 1),
+            ZoneInfo("UTC"),
+            root_turns=[],
+        )
+
+        self.assertEqual(report.human_initiated_top_level_turns, 0)
+        self.assertEqual(report.mean_human_initiated_turn_seconds, 0.0)
+        self.assertEqual(report.median_human_initiated_turn_seconds, 0.0)
+
+    def test_omitted_root_turns_are_not_treated_as_human_initiated(self) -> None:
+        report = build_report_metrics(
+            [CompletedTurn(timestamp(2026, 6, 1), 60)],
+            date(2026, 6, 1),
+            date(2026, 6, 1),
+            ZoneInfo("UTC"),
+        )
+
+        self.assertEqual(report.human_initiated_top_level_turns, 0)
+        self.assertEqual(report.mean_human_initiated_turn_seconds, 0.0)
+        self.assertEqual(report.median_human_initiated_turn_seconds, 0.0)
 
     def test_counts_overlapping_turns_independently(self) -> None:
         turns = [
