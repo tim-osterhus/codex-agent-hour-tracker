@@ -569,6 +569,25 @@ class PublicFilesContinuationTests(unittest.TestCase):
 
         self.assertEqual(project["name"], "codex-agent-hour-tracker")
 
+    def test_release_version_and_compaction_compatibility_are_current(self) -> None:
+        with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
+            project = tomllib.load(handle)["project"]
+        package_init = (PROJECT_ROOT / "src/agent_hour_tracker/__init__.py").read_text(
+            encoding="utf-8"
+        )
+        methodology = (PROJECT_ROOT / "docs/methodology.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertEqual(project["version"], "0.1.2")
+        self.assertIn('__version__ = "0.1.2"', package_init)
+        self.assertIn("tracker v0.1.2", self.readme)
+        self.assertRegex(
+            methodology,
+            r"(?is)`compacted`.{0,300}`context_compacted`.{0,300}"
+            r"`task_started`.{0,120}`task_complete`",
+        )
+
     def test_both_console_scripts_point_to_cli_main(self) -> None:
         with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
             scripts = tomllib.load(handle)["project"]["scripts"]

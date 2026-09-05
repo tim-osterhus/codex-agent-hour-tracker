@@ -91,6 +91,70 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(result.root_turns, result.turns)
         self.assertEqual(result.diagnostics.files_scanned, 1)
 
+    def test_compaction_envelopes_preserve_timing_without_decoding_payloads(
+        self,
+    ) -> None:
+        secret = "TOP_SECRET_COMPACTED_HISTORY"
+        records = [
+            self._timestamped(
+                "2026-09-04T17:00:00Z",
+                {"type": "session_meta", "payload": {"source": "cli"}},
+            ),
+            self._timestamped(
+                "2026-09-04T17:00:00Z",
+                self._start("turn", 1_788_541_200),
+            ),
+            self._timestamped(
+                "2026-09-04T17:00:05Z",
+                {
+                    "type": "compacted",
+                    "payload": {"opaque_history": secret},
+                },
+            ),
+            self._timestamped(
+                "2026-09-04T17:00:07Z",
+                {
+                    "type": "event_msg",
+                    "payload": {
+                        "type": "context_compacted",
+                        "opaque_history": secret,
+                    },
+                },
+            ),
+            self._timestamped(
+                "2026-09-04T17:00:10Z",
+                self._complete("turn", duration_ms=10_000),
+            ),
+        ]
+        decoded_scalars: list[bytes | str] = []
+        original_loads = scanner_module.json.loads
+
+        def spy_loads(value: bytes | str, *args: object, **kwargs: object) -> object:
+            decoded_scalars.append(value)
+            return original_loads(value, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            self._write_file(directory, "compacted.jsonl", records)
+            with patch.object(
+                scanner_module.json, "loads", side_effect=spy_loads
+            ):
+                result = scan_sessions(directory)
+
+        self.assertEqual(result.turns, [CompletedTurn(1_788_541_200, 10.0)])
+        self.assertEqual(result.root_turns, result.turns)
+        self.assertEqual(result.diagnostics.malformed_lines, 0)
+        self.assertTrue(
+            all(
+                secret not in (
+                    value.decode("utf-8", "replace")
+                    if isinstance(value, bytes)
+                    else value
+                )
+                for value in decoded_scalars
+            )
+        )
+
     def test_only_root_sources_enter_root_turns(self) -> None:
         cases = (
             ("cli", True),

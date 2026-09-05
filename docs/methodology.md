@@ -18,11 +18,11 @@ An explicit `--start` or `--end` date defines an inclusive range. Turns whose lo
 
 The canonical Archive Score and an unbounded report use the 30 most recent completed local calendar days ending yesterday. The range is inclusive. If today is March 1, the range is January 30 through February 28. `--share` always uses this window and rejects explicit date bounds and report formats.
 
-Root-turn duration statistics use the same inclusive local-start-date range and selected timezone. A root sample includes valid zero-duration turns. An empty root sample reports count 0 and mean and median 0.00 minutes. The normal text report shows the sample count and its mean and median active durations in minutes; these statistics do not change the all-turn daily rows or agent-hour totals.
+Root-turn duration statistics use the same inclusive local-start-date range and selected timezone. A root sample includes valid zero-duration turns. An empty root sample reports count 0 and mean and median 0.00 minutes. The normal text report shows the sample count and its mean and median active durations in minutes. These statistics do not change the all-turn daily rows or agent-hour totals.
 
 ## Session selection and batch exclusion
 
-The scanner includes non-batch turns in the existing all-turn totals. A root session has a source string of `cli`, `vscode`, or `user`. A delegated session has a direct source mapping with a `subagent` key. The scanner classifies a session file as batch when its session metadata identifies the source strings `exec`, `batch`, or `codex_exec`, or a direct source mapping contains an `exec` or `batch` key. Batch wins if present and excludes every completed turn found in that file.
+The scanner includes non-batch turns in the existing all-turn totals. A root session has a source string of `cli`, `vscode`, or `user`. A delegated session has a direct source mapping with a `subagent` key. The scanner classifies a session file as batch when session metadata uses `exec`, `batch`, or `codex_exec`. A direct source mapping with an `exec` or `batch` key also marks the file as batch. Batch wins if present and excludes every completed turn found in that file.
 
 Unknown, missing, malformed, and conflicting source evidence remains eligible for non-batch all-turn aggregation, but is excluded from root-only statistics. Mixed non-batch source evidence never enters the root sample. The normal report emits a bounded fingerprint label for an unknown source. Share diagnostics omit that label.
 
@@ -35,6 +35,12 @@ The scanner excludes batch files before deduplicating observations globally by `
 3. Prefer the earlier start timestamp when the first two values tie.
 
 The scanner then sorts retained turns by start timestamp, turn-ID type and representation, and duration. Duplicate observations increment the duplicate diagnostic count.
+
+## Compacted records
+
+Codex can store compacted context in top-level `compacted` records and `event_msg` records whose payload type is `context_compacted`. The scanner does not treat either envelope as turn metadata and does not decode its payload. A valid top-level timestamp still advances every open turn under the standard event-gap rule.
+
+Compaction remains compatible while the archive retains `task_started` and `task_complete` metadata. If a future archive format removes or replaces those records, the scanner will omit affected turns until that format is supported.
 
 ## Diagnostics
 

@@ -2,5 +2,5 @@
 
 __all__ = ["METHODOLOGY_VERSION", "__version__"]
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 METHODOLOGY_VERSION = "1"

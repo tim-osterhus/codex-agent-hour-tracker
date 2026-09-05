@@ -25,7 +25,7 @@ Peak day: 4.00
 Completed turns: 12
 Active days: 10/30
 
-Archive Score | methodology v1 | tracker v0.1.1
+Archive Score | methodology v1 | tracker v0.1.2
 Calculated locally. No conversation content uploaded.
 ```
 
@@ -72,7 +72,9 @@ Git ignores the `reports/` directory. Do not redirect generated output to tracke
 
 The canonical Archive Score and a report without date bounds cover the 30 most recent completed local calendar days ending yesterday. Calendar days include days with zero use. If today is March 1, the window is January 30 through February 28.
 
-The scanner bounds each event gap at 30 minutes and uses bounded duration fallbacks. It attributes turns to their payload `started_at` date, excludes batch files, and deduplicates turns globally. Root-only statistics classify only sessions with a `cli`, `vscode`, or `user` source; delegated, unknown, malformed, or conflicting sources are excluded from that sample while remaining in non-batch all-turn totals. See the [methodology](docs/methodology.md) for exact rules and limitations.
+The scanner bounds each event gap at 30 minutes and uses bounded duration fallbacks. It attributes turns to their payload `started_at` date, excludes batch files, and deduplicates turns globally. The scanner treats only sessions with a `cli`, `vscode`, or `user` source as roots. It excludes delegated, unknown, malformed, and conflicting sources from that sample. Those sources remain in non-batch all-turn totals. See the [methodology](docs/methodology.md) for exact rules and limitations.
+
+Codex compaction records do not require conversation parsing. The scanner ignores `compacted` and `context_compacted` payloads while retaining their top-level timestamps for active-time measurement. Completed-turn metrics still require the archive to retain `task_started` and `task_complete` metadata.
 
 ## Privacy boundary
 
