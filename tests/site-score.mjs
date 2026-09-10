@@ -1,11 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   EXAMPLE,
   parseScore,
   calculateLeverage,
   renderCard,
 } from "../site/score.mjs";
+test("legacy asset URLs bypass cached pre-0.2 website code", () => {
+  for (const path of ["../site/index.html", "../site/benchmarks/index.html"]) {
+    const html = readFileSync(new URL(path, import.meta.url), "utf8");
+    assert.match(html, /href="\/styles\.css\?v=0\.2\.0"/);
+    assert.doesNotMatch(html, /(?:src|href)="\/(?:app\.js|styles\.css)"/);
+    if (path === "../site/index.html") {
+      assert.match(html, /src="\/app\.js\?v=0\.2\.0"/);
+    }
+  }
+});
 const changed = (fn) => {
   const value = structuredClone(EXAMPLE);
   fn(value);
