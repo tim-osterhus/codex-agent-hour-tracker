@@ -4,18 +4,42 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import date, tzinfo
 
-from .metrics import ReportMetrics
+from .metrics import LeverageMetrics, ReportMetrics, monthly_breakdown
 
-__all__ = ["render_csv", "render_share", "render_text"]
+__all__ = ["render_csv", "render_monthly", "render_share", "render_text"]
 
 
-def render_text(report: ReportMetrics) -> str:
+def render_text(
+    report: ReportMetrics,
+    *,
+    start: date | None = None,
+    end: date | None = None,
+    timezone: tzinfo | str | None = None,
+    scope: str | None = None,
+    methodology_version: str | None = None,
+    leverage: LeverageMetrics | None = None,
+    monthly: bool = False,
+) -> str:
     """Render the summary, daily rows, and histogram as plain text."""
 
     days = sorted(report.days, key=lambda day: day.date)
-    lines = [
-        "AGENT-HOUR SUMMARY",
+    lines = ["AGENT-HOUR SUMMARY"]
+    lines.extend(
+        _context_lines(
+            days,
+            start=start,
+            end=end,
+            timezone=timezone,
+            scope=scope,
+            methodology_version=methodology_version,
+        )
+    )
+    if len(lines) > 1:
+        lines.append("")
+    lines.extend(
+        [
         f"Calendar days:{len(days):>16}",
         f"Total agent-hours:{report.total_agent_hours:>12.2f}",
         f"Human-initiated top-level turns:{report.human_initiated_top_level_turns:>8}",
@@ -39,18 +63,52 @@ def render_text(report: ReportMetrics) -> str:
         "",
         "DAILY AGENT-HOURS",
         f"{'Date':<28}{'Agent-hours':>5}{'Completed turns':>18}",
-    ]
+        ]
+    )
     lines.extend(
         f"{day.date.isoformat():<28}{day.agent_hours:.2f}{day.completed_turns:>11}"
         for day in days
     )
     lines.extend(("", "DAILY DISTRIBUTION"))
     lines.extend(f"{label:<28}{count}" for label, count in report.histogram.items())
+    if leverage is not None:
+        lines.extend(("", *_render_leverage_lines(leverage, len(days))))
+    if monthly:
+        lines.extend(("", render_monthly(report).rstrip("\n")))
+    return "\n".join(lines) + "\n"
+
+
+def render_monthly(report: ReportMetrics) -> str:
+    """Render monthly totals with explicit requested bounds and day counts."""
+
+    lines = [
+        "MONTHLY AGENT-HOURS",
+        f"{'Month':<10}{'Requested bounds':<31}{'Days':>7}{'Agent-hours':>15}{'Completed turns':>18}{'Active days':>13}",
+    ]
+    lines.extend(
+        (
+            f"{month.month:<10}"
+            f"{month.start.isoformat()} to {month.end.isoformat():<20}"
+            f"{month.calendar_days:>7}"
+            f"{month.agent_hours:>15.2f}"
+            f"{month.completed_turns:>18}"
+            f"{month.active_days:>13}"
+        )
+        for month in monthly_breakdown(report)
+    )
     return "\n".join(lines) + "\n"
 
 
 def render_share(
-    report: ReportMetrics, tracker_version: str, methodology_version: str
+    report: ReportMetrics,
+    tracker_version: str,
+    methodology_version: str,
+    *,
+    start: date | None = None,
+    end: date | None = None,
+    timezone: tzinfo | str | None = None,
+    scope: str | None = None,
+    leverage: LeverageMetrics | None = None,
 ) -> str:
     """Render a deterministic, conversation-free Archive Score card."""
 
@@ -72,13 +130,29 @@ def render_share(
         f"Peak day: {report.max_agent_hours:.2f}",
         f"Completed turns: {completed_turns}",
         f"Active days: {report.active_days}/{day_count}",
-        "",
-        (
-            f"Archive Score | methodology v{methodology_version} | "
-            f"tracker v{tracker_version}"
-        ),
-        "Calculated locally. No conversation content uploaded.",
     ]
+    context = _context_lines(
+        days,
+        start=start,
+        end=end,
+        timezone=timezone,
+        scope=scope,
+        methodology_version=methodology_version,
+    )
+    if context:
+        lines.extend(("", *context))
+    lines.extend(
+        (
+            "",
+            (
+                f"Agent-Hour Score | methodology v{methodology_version} | "
+                f"tracker v{tracker_version}"
+            ),
+        )
+    )
+    if leverage is not None:
+        lines.extend(("", *_render_leverage_lines(leverage, day_count)))
+    lines.append("Calculated locally. No conversation content uploaded.")
     return "\n".join(lines) + "\n"
 
 
@@ -93,3 +167,50 @@ def render_csv(report: ReportMetrics) -> str:
             (day.date.isoformat(), f"{day.agent_hours:.6f}", day.completed_turns)
         )
     return buffer.getvalue()
+
+
+def _context_lines(
+    days: list,
+    *,
+    start: date | None,
+    end: date | None,
+    timezone: tzinfo | str | None,
+    scope: str | None,
+    methodology_version: str | None,
+) -> list[str]:
+    if not days:
+        return []
+    resolved_start = days[0].date if start is None else start
+    resolved_end = days[-1].date if end is None else end
+    lines: list[str] = []
+    if scope is not None:
+        lines.append(f"Scope: {scope}")
+    if timezone is not None:
+        timezone_name = (
+            timezone if isinstance(timezone, str) else getattr(timezone, "key", str(timezone))
+        )
+        lines.append(f"Timezone: {timezone_name}")
+    if start is not None or end is not None:
+        lines.append(
+            f"Window: {resolved_start.isoformat()} to {resolved_end.isoformat()} "
+            f"({len(days)} calendar days)"
+        )
+    if methodology_version is not None and (scope is not None or timezone is not None):
+        lines.append(f"Methodology: v{methodology_version}")
+    return lines
+
+
+def _render_leverage_lines(leverage: LeverageMetrics, day_count: int) -> tuple[str, ...]:
+    lines = (f"Agent leverage: {leverage.ratio:.2f}x",)
+    if leverage.basis == "estimated-weekly":
+        weekly = leverage.human_hours_per_week
+        lines += (
+            (
+                "Human-hours basis: estimated weekly "
+                f"({weekly:.2f} h/week over {day_count} calendar days = "
+                f"{leverage.human_hours:.2f} h)"
+            ),
+        )
+    else:
+        lines += (f"Human-hours basis: reported period ({leverage.human_hours:.2f} h)",)
+    return lines

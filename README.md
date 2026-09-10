@@ -1,101 +1,121 @@
-# Agent Hour Tracker
+# Agent Hours
 
-Agent Hour Tracker is a local CLI that measures cumulative Codex agent-hours from completed session turns.
+Agent Hours is a local CLI that measures cumulative Codex agent-hours from completed turns.
 
-If you inspect your own local Codex activity, start with the sanitized Archive Score card:
+See your runtime across profiles and machines, calculate optional Agent Leverage, and make a share card at [agenthours.dev](https://agenthours.dev).
 
 ```bash
 uvx codex-agent-hour-tracker --share
 ```
 
-The command reads local session JSONL files and reports completed root and delegated turns. It does not decode conversation content for timing. Use explicit date bounds when you need a reproducible custom report.
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) and a local Codex session archive. The package supports Python 3.11–3.14 on macOS, Linux, and Windows. Archive-derived runtime is an estimate: missing records and sparse timestamps affect coverage.
 
-## Synthetic Archive Score example
+## Your Agent-Hour Score
 
-The following card uses fabricated dates and values. It is an example, not a report from a person or machine:
+The score is mean cumulative runtime across the 30 most recent completed local calendar days ending yesterday. Zero-use days count. Overlapping turns count independently: three agents running for one hour contribute three agent-hours.
 
-```text
-CODEX AGENT-HOUR SCORE
+If today is March 1 in a non-leap year, the window is January 30 through February 28. Custom date ranges produce reports, not canonical scores.
 
-30 complete calendar days | 2025-01-01 to 2025-01-30
------------------------------------------------------
-Agent-hours/day: 2.00
-Total agent-hours: 60.00
-Peak day: 4.00
-Completed turns: 12
-Active days: 10/30
+The default `interactive-only` scope excludes exec/batch files. It includes delegated turns and non-batch turns with uncertain source metadata. Use `--include-exec` to count exec/batch work as well. Every score states its scope.
 
-Archive Score | methodology v1 | tracker v0.1.2
-Calculated locally. No conversation content uploaded.
-```
-
-Agent-hours are cumulative completed-turn durations. If turns overlap, the tracker sums each turn independently. The total measures cumulative runtime, not elapsed wall-clock time.
-
-Normal text reports also show the count, mean, and median active duration for top-level human-initiated turns. Those duration statistics use minutes.
-
-## Install
-
-Install the published package with either tool:
+## Install once
 
 ```bash
 uv tool install codex-agent-hour-tracker
-codex-agent-hour-tracker --share
+agent-hours --share
 ```
+
+Or use pipx:
 
 ```bash
 pipx install codex-agent-hour-tracker
 codex-agent-hour-tracker --share
 ```
 
-The `agent-hours` command is also installed as a short alias. The CLI reads the local Codex session directory by default. Use `--sessions-dir PATH` to select another directory.
+Both command names invoke the same tool. Upgrade an existing uv installation with `uv tool upgrade codex-agent-hour-tracker`.
 
-## Custom reports
+## Calculate Agent Leverage
 
-The default report is text. Explicit `--start` and `--end` values define an inclusive local-calendar date range:
+Supply your human hours for the entire report period:
+
+```bash
+agent-hours --share --human-hours 160
+```
+
+Or estimate them from a weekly schedule:
+
+```bash
+agent-hours --share --human-hours-per-week 40
+```
+
+Agent Leverage divides agent runtime by human hours over the same period. A weekly estimate uses `weekly hours × calendar days / 7`. The output identifies the assumption. The tool does not measure your human work time or infer it from prompt timestamps.
+
+## Make a share card
+
+```bash
+agent-hours --share --format json
+```
+
+Paste this sanitized aggregate JSON into the [share studio](https://agenthours.dev/#share). Preview and download a square or landscape PNG/SVG in your browser. Calculation and image generation run locally. The website accepts only the public score schema.
+
+`--share` is the safe default for sharing, but dates, counts, durations, timezone, and optional human-hours assumptions remain a deliberate aggregate disclosure. Review the card before posting it.
+
+## Profiles and machines
+
+Repeat `--sessions-dir` to combine local profile directories:
+
+```bash
+agent-hours --sessions-dir PROFILE_A/sessions --sessions-dir PROFILE_B/sessions --share
+```
+
+For multiple machines, export private timing metadata on each machine:
 
 ```bash
 mkdir -p reports
-agent-hours --start 2025-01-01 --end 2025-01-30 \
-  > reports/january-summary.txt
+agent-hours --export reports/laptop.agent-hours-private.json --label laptop
 ```
 
-CSV output has one row per calendar day. Save generated reports only under the ignored `reports/` directory:
+Transfer those private exports using your own secure file-transfer method, then merge them:
 
 ```bash
+agent-hours --merge reports/laptop.agent-hours-private.json \
+  --merge reports/desktop.agent-hours-private.json --share --include-exec
+```
+
+The merge deduplicates turn identifiers before calculating the combined total. Private exports retain all source classes so you can choose the scope when merging. They contain precise timestamps and hashed turn identifiers. **Do not upload them to the website or commit them.** The tracker does not read account credentials or separate accounts that share a session directory.
+
+## Daily and monthly reports
+
+Explicit `--start` and `--end` values define an inclusive local-calendar range:
+
+```bash
+mkdir -p reports
+agent-hours --start 2025-01-01 --end 2025-01-30 --monthly \
+  > reports/january-summary.txt
 agent-hours --start 2025-01-01 --end 2025-01-30 --format csv \
   > reports/january-summary.csv
 ```
 
-Git ignores the `reports/` directory. Do not redirect generated output to tracked files.
+Text reports include daily distribution, monthly summaries when requested, and human-initiated top-level turn count, mean, and median duration. CSV retains one row per calendar date. Partial-month averages use only the days in the requested range. Use `--timezone IANA_ZONE` when combining machines with different local timezones.
 
-## Default window and methodology
+Full reports and CSVs reveal semi-sensitive activity patterns. Keep generated files in the ignored `reports/` directory and review any output before distribution.
 
-The canonical Archive Score and a report without date bounds cover the 30 most recent completed local calendar days ending yesterday. Calendar days include days with zero use. If today is March 1, the window is January 30 through February 28.
+## What the numbers can tell you
 
-The scanner bounds each event gap at 30 minutes and uses bounded duration fallbacks. It attributes turns to their payload `started_at` date, excludes batch files, and deduplicates turns globally. The scanner treats only sessions with a `cli`, `vscode`, or `user` source as roots. It excludes delegated, unknown, malformed, and conflicting sources from that sample. Those sources remain in non-batch all-turn totals. See the [methodology](docs/methodology.md) for exact rules and limitations.
+Agent-hours measure runtime, not useful output, human-equivalent labor, or time saved. Benchmarks are dated contextual references, not a personal ranking. See [benchmarks](https://agenthours.dev/benchmarks/) and the [methodology](docs/methodology.md) for populations, denominators, and timing rules.
 
-Codex compaction records do not require conversation parsing. The scanner ignores `compacted` and `context_compacted` payloads while retaining their top-level timestamps for active-time measurement. Completed-turn metrics still require the archive to retain `task_started` and `task_complete` metadata.
+The scanner retains compact timing metadata without decoding conversation, reasoning, or tool payloads. No session data leaves the machine through the CLI. Compacted records remain supported while completed-turn metadata survives.
 
-## Privacy boundary
-
-`--share` emits intentionally sanitized aggregate output and is the safe default for sharing. The card contains counts, durations, and dates, so sharing it remains a deliberate aggregate disclosure.
-
-CSV and full text reports contain semi-sensitive activity patterns. Do not commit or share those files accidentally. Keep generated files under the ignored `reports/` directory and review any output before distribution.
-
-The scanner retains compact timing metadata only. It does not decode conversation content or send session data over the network. Diagnostics are separate from report output and may include counts and, outside `--share`, bounded local file paths.
-
-## Optional Codex skill
-
-The optional Codex skill is available with this repository under [`skills/codex-agent-hour-tracker/`](https://github.com/tim-osterhus/codex-agent-hour-tracker/tree/main/skills/codex-agent-hour-tracker/). Use the repository path when you want the tracker workflow in Codex.
-
-## Development and tests
-
-The package requires Python 3.11 or newer. From a source checkout, run the synthetic test suite with:
+## Development
 
 ```bash
 uv run python -m unittest discover -s tests -v
+node --test tests/site*.mjs
+python3 scripts/sync_benchmarks.py --check
 ```
 
-The command exposes `agent-hours` and `codex-agent-hour-tracker` entry points. Packaging metadata and the test suite are the source of truth for supported commands.
+The repository has a Python package in `src/agent_hour_tracker/`, synthetic tests in `tests/`, and a static website in `site/`. The [export contracts](docs/exports.md) define private merge data and public score data separately. The package benchmark registry generates the website copy through `scripts/sync_benchmarks.py`.
 
-Read the [security policy](SECURITY.md), [methodology](docs/methodology.md), and [MIT license](LICENSE) before deploying or sharing reports.
+The [optional Codex skill](https://github.com/tim-osterhus/codex-agent-hour-tracker/tree/main/skills/codex-agent-hour-tracker/) guides collection and sharing workflows. It is not required to install or run the tool.
+
+Read the [changelog](CHANGELOG.md), [security policy](SECURITY.md), and [MIT license](LICENSE).

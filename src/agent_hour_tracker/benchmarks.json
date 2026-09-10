@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "benchmarks": [
+    {
+      "id": "openai-research-2026-08",
+      "value": 3.1,
+      "operator": "=",
+      "unit": "agent_hours_per_human_hour",
+      "population": "OpenAI research organization, aggregate",
+      "period": "Mid-August 2026",
+      "published_at": "2026-09-06",
+      "source_url": "https://openai.com/index/research-acceleration-view-inside-openai/",
+      "limitations": "Organization-level runtime ratio, not an individual percentile. A personal estimate using assumed human hours does not reproduce OpenAI's denominator or prove equivalent productivity."
+    },
+    {
+      "id": "openai-internal-p99-2026-06",
+      "value": 60,
+      "operator": ">",
+      "unit": "agent_hours_per_active_day",
+      "population": "Daily active internal OpenAI users, 99th percentile",
+      "period": "June 2026",
+      "published_at": "2026-06-25",
+      "source_url": "https://openai.com/index/how-agents-are-transforming-work/",
+      "limitations": "Historical internal daily-active-user benchmark. A 30-calendar-day personal average uses a different denominator. No current individual-user ranking can be inferred."
+    }
+  ]
+}

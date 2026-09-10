@@ -1,4 +1,5 @@
 /reports/
+*.agent-hours-private.json
 /dist/
 /build/
 /docs/superpowers/

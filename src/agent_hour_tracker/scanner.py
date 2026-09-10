@@ -64,6 +64,11 @@ class ScanDiagnostics:
     excluded_batch_turns: int = 0
     unknown_sources: Counter[str] = field(default_factory=Counter)
     malformed_files: set[Path] = field(default_factory=set)
+    open_errors: int = 0
+    traversal_errors: int = 0
+    missing_paths: int = 0
+    unsupported_paths: int = 0
+    imported_malformed_files: int = 0
 
 
 @dataclass(slots=True)
@@ -226,6 +231,7 @@ def _scan_file(
                     diagnostics.malformed_lines += 1
                     diagnostics.malformed_files.add(session_file)
     except OSError:
+        diagnostics.open_errors += 1
         diagnostics.malformed_files.add(session_file)
 
     diagnostics.incomplete_turns += len(starts)
@@ -874,6 +880,17 @@ def _hashable_turn_id(value: object) -> bool:
     except TypeError:
         return False
     return True
+
+
+def _turn_id_digest(value: object) -> str:
+    """Return a deterministic SHA256 digest for a typed turn ID."""
+
+    tagged_text = f"{type(value).__name__}:{value}"
+    try:
+        tagged_value = tagged_text.encode("utf-8")
+    except UnicodeEncodeError:
+        tagged_value = tagged_text.encode("utf-8", "backslashreplace")
+    return hashlib.sha256(tagged_value).hexdigest()
 
 
 def _merge_source_kind(current_kind: str, incoming_kind: str) -> str:
