@@ -76,6 +76,10 @@ async function page(community = false, options = {}) {
       remove: () => {},
     },
   });
+  if (options.coldChallenge) {
+    // Browsers expose element IDs as window properties before the SDK loads.
+    context.turnstile = document.getElementById("turnstile") ?? undefined;
+  }
   const source = readFileSync(
     new URL(
       community ? "../site/community.js" : "../site/app.js",
@@ -98,6 +102,32 @@ async function page(community = false, options = {}) {
     tick,
   };
 }
+test("a cold community page loads the challenge SDK before enabling a post", async () => {
+  const p = await page(true, { coldChallenge: true });
+  p.$("score-json").value = JSON.stringify(score.EXAMPLE);
+  p.fire("import");
+  p.fire("intend-post");
+  await p.tick();
+  const scripts = p.document.head.querySelectorAll("script[src^='https://challenges.cloudflare.com/']");
+  assert.equal(scripts.length, 1, "the SDK must load even with browser named-element globals");
+  assert.equal(p.$("post-score").disabled, true);
+  p.context.turnstile = {
+    render: (node, config) => {
+      assert.ok(node && node.parentNode, "render into an attached challenge container");
+      p.context.challenge = config;
+      return "cold-widget";
+    },
+    remove: () => {},
+  };
+  scripts[0].onload();
+  await p.tick();
+  assert.equal(p.$("post-score").hidden, false);
+  assert.equal(p.$("post-score").disabled, true);
+  p.context.challenge.callback("synthetic-token");
+  assert.equal(p.$("post-score").disabled, false);
+  assert.equal(p.calls.filter(call => call.method === "POST").length, 0);
+});
+
 test("homepage starts local and empty; imported scores need a share click for tab handoff", async () => {
   const p = await page();
   assert.equal(p.$("nerds").hasAttribute("open"), false);

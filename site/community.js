@@ -204,7 +204,7 @@ $("intend-post").addEventListener("click", async () => {
   try {
     await loadChallenge();
     if (current !== revision || !intending || !allowed()) return;
-    widget = globalThis.turnstile.render($("turnstile"), {
+    widget = globalThis.turnstile.render($("turnstile-widget"), {
       sitekey: config.turnstile_site_key,
       action: "community_post",
       callback: (value) => {
