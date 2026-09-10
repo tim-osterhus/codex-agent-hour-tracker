@@ -13,7 +13,7 @@
   ],
   "vars": {
     "SITE_ORIGIN": "https://agenthours.dev",
-    "SUBMISSIONS_ENABLED": "false",
+    "SUBMISSIONS_ENABLED": "true",
     "GITHUB_CLIENT_ID": "Ov23lihFyRFpRWoJVIDr",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAEuf6pQsaWyUtEa7"
   },
