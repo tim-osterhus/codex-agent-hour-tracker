@@ -56,9 +56,19 @@ Agent Leverage divides agent runtime by human hours over the same period. A week
 agent-hours --share --format json
 ```
 
-Paste this sanitized aggregate JSON into the [share studio](https://agenthours.dev/#share). Preview and download a square or landscape PNG/SVG in your browser. Calculation and image generation run locally. The website accepts only the public score schema.
+Upload or paste this sanitized aggregate JSON into the [share studio](https://agenthours.dev/#share). Preview and download a square or landscape PNG/SVG in your browser. Importing a score and making a card run locally. The website accepts only the public score schema.
 
 `--share` is the safe default for sharing, but dates, counts, durations, timezone, and optional human-hours assumptions remain a deliberate aggregate disclosure. Review the card before posting it.
+
+## Join the community scoreboard
+
+The separate [community page](https://agenthours.dev/community/) shows self-reported scores. GitHub sign-in identifies the person posting, but does not verify their runtime. Scores can be edited or inflated.
+
+After importing your score, choose **Share to community**. Review the public fields, sign in with GitHub, and confirm the post. Importing a file never posts it. The community score omits Agent Leverage and human-hours assumptions.
+
+Each GitHub account can make five successful posts in a rolling 30-day window. Updating a score counts as a post. Deleting it does not refund a slot. The page warns you after your fourth post and shows when a slot opens.
+
+The local card tool works without an account or community access. Hosting and privacy details are in the [community guide](docs/community.md).
 
 ## Profiles and machines
 
@@ -110,11 +120,15 @@ The scanner retains compact timing metadata without decoding conversation, reaso
 
 ```bash
 uv run python -m unittest discover -s tests -v
-node --test tests/site*.mjs
+npm ci --ignore-scripts
+npm test
+npm run build:check
 python3 scripts/sync_benchmarks.py --check
 ```
 
-The repository has a Python package in `src/agent_hour_tracker/`, synthetic tests in `tests/`, and a static website in `site/`. The [export contracts](docs/exports.md) define private merge data and public score data separately. The package benchmark registry generates the website copy through `scripts/sync_benchmarks.py`.
+The repository has a Python package in `src/agent_hour_tracker/`, synthetic tests in `tests/`, and browser assets in `site/`. The optional community API uses Pages Functions in `functions/`, application code in `community/`, and D1 migrations in `migrations/`. Node.js 24 runs the website development tools. Installing the Python CLI does not install or run the website backend.
+
+The [export contracts](docs/exports.md) define private merge data and public score data separately. The package benchmark registry generates the website copy through `scripts/sync_benchmarks.py`.
 
 The [optional Codex skill](https://github.com/tim-osterhus/codex-agent-hour-tracker/tree/main/skills/codex-agent-hour-tracker/) guides collection and sharing workflows. It is not required to install or run the tool.
 

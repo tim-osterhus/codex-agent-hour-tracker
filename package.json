@@ -1,0 +1,19 @@
+{
+  "name": "agent-hours-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/site*.mjs tests/community-*.mjs",
+    "dev": "wrangler pages dev site",
+    "build:check": "wrangler pages functions build --outdir .wrangler/build"
+  },
+  "overrides": {
+    "sharp": "0.35.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260910.1",
+    "linkedom": "0.18.13",
+    "miniflare": "5.20260908.0-alpha",
+    "wrangler": "4.130.0"
+  }
+}

@@ -18,7 +18,19 @@ The scanner reads local archive bytes and decodes only bounded timing and source
 
 Private merge exports retain exact start timestamps, durations, source classes, and persistent hashed turn identifiers. Hashes permit correlation and do not anonymize activity. Keep these exports private. Full text and CSV reports also reveal activity patterns.
 
-Public share exports use a separate allowlist of aggregate fields. The website validates that schema, rejects private archives, and renders images locally. It has no analytics, cookies, or data-submission endpoint. Downloaded cards still disclose their displayed aggregates and optional human-hours assumptions.
+Public share exports use a separate allowlist of aggregate fields. The website validates that schema, rejects private archives, and renders images locally. Importing a score does not submit it. Downloaded cards still disclose their displayed aggregates and optional human-hours assumptions.
+
+## Optional community scoreboard
+
+Publishing requires a separate confirmation on the community page. A post links your GitHub login to aggregate runtime, dates, timezone, scope, and software versions. It excludes daily rows, machine labels, turn identifiers, and human-hours assumptions. Public scores are visible to anyone and can be copied.
+
+Choosing **Share to community** temporarily puts an allowlisted score in browser tab storage for the page handoff. It does not store the raw file or private archive. This is separate from posting to the server.
+
+GitHub login requests no repository or email scopes. The service uses a Secure, HttpOnly, SameSite login cookie and checks the request origin and CSRF token for changes. GitHub access tokens are discarded after identity lookup. The site has no analytics scripts. Cloudflare Turnstile loads when you choose to post, and contacts Cloudflare for a bot check.
+
+The database stores a stable GitHub account ID, login, session records, current public scores, and a short-lived posting ledger. Five accepted posts are allowed per account in a rolling 30-day window. A separate short-burst limit uses time-bucketed keyed IP fingerprints, not raw IP addresses. Fingerprints are private and are not a guarantee of anonymity.
+
+Deleting a score removes its current public entry. It does not refund posting slots or erase copies others made. Expired private records are pruned during service use. Provider backups and operational logs can have separate retention. Hosting providers still receive normal connection metadata, including IP addresses. See the [community guide](docs/community.md) for retention and operator controls.
 
 All imported data is untrusted. A share card is self-reported and provides no cryptographic proof of runtime, identity, or productivity.
 

@@ -45,9 +45,19 @@ jobs:
         run: uv sync
       - name: Run tests
         run: uv run python -m unittest discover -s tests -v
-      - name: Check website calculations and benchmark registry
+      - name: Install Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Install website development tools
+        run: npm ci --ignore-scripts
+      - name: Check website and community API
         run: |
-          node --test tests/site*.mjs
+          npm test
+          npm run build:check
+          npm audit --audit-level=high
+      - name: Check benchmark registry
+        run: |
           uv run python scripts/sync_benchmarks.py --check
       - name: Build distributions
         run: uv build --no-create-gitignore

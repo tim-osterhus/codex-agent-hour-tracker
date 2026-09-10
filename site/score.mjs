@@ -156,6 +156,81 @@ export function calculateLeverage(runtime, weekly) {
     ? { total, human, ratio }
     : null;
 }
+// Local state never writes storage or calls the network. Sharing is a separate action.
+export class LocalScore {
+  score = null;
+  shareable = false;
+  clear() {
+    this.score = null;
+    this.shareable = false;
+  }
+  import(text) {
+    this.clear();
+    this.score = parseScore(text);
+    this.shareable = true;
+    return this.score;
+  }
+  async importFile(file) {
+    this.clear();
+    if (!file || file.size > 32768)
+      throw new Error("Choose a score JSON file of 32 KB or less.");
+    return this.import(await file.text());
+  }
+  preview(agents, hours, weekly = null) {
+    this.clear();
+    const daily = agents * hours;
+    if (
+      !Number.isSafeInteger(agents) ||
+      agents < 1 ||
+      agents > 1000 ||
+      !nonnegative(hours) ||
+      hours > 24 ||
+      !Number.isFinite(daily * 30)
+    )
+      throw new Error("Use 1–1,000 agents and 0–24 hours per agent each day.");
+    const leverage = weekly === null ? null : calculateLeverage(daily, weekly);
+    if (weekly !== null && !leverage)
+      throw new Error(
+        "Leave your weekly hours blank, or enter a number greater than zero.",
+      );
+    this.score = structuredClone(EXAMPLE);
+    this.score.metrics = {
+      agent_hours_per_day: daily,
+      total_agent_hours: daily * 30,
+      peak_day_agent_hours: daily,
+      completed_turns: agents * 30,
+      active_days: 30,
+    };
+    this.score.leverage = leverage
+      ? {
+          ratio: leverage.ratio,
+          human_hours: leverage.human,
+          basis: "estimated-weekly",
+          human_hours_per_week: weekly,
+        }
+      : null;
+    return this.score;
+  }
+  handoff() {
+    if (!this.shareable || !this.score)
+      throw new Error("Load your score JSON first. Examples cannot be posted.");
+    return JSON.stringify({
+      ...parseScore(JSON.stringify(this.score)),
+      leverage: null,
+    });
+  }
+}
+export function quotaNotice(quota) {
+  if (!quota || quota.used < 4) return "";
+  const next = quota.next_slot_at
+    ? ` Next slot opens ${quota.next_slot_at} (UTC).`
+    : "";
+  return (
+    (quota.remaining === 0
+      ? "All 5 posts used. Posting is paused."
+      : "1 post left in your rolling 30-day limit.") + next
+  );
+}
 export const number = (n) =>
   Math.abs(n) >= 1e7
     ? n.toExponential(2)

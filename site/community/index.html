@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Community — Agent Hours</title>
+    <meta
+      name="description"
+      content="Browse self-reported agent hours. Review and choose to post your own score."
+    />
+    <meta name="theme-color" content="#202320" />
+    <link rel="canonical" href="https://agenthours.dev/community/" />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/styles.css?v=community-1" />
+    <script type="module" src="/community.js?v=community-1"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="shell header">
+      <a class="wordmark" href="/"
+        ><span class="mark" aria-hidden="true">≋</span> agent hours</a
+      ><a href="/">Make a score ↗</a>
+    </header>
+    <main id="main" class="shell">
+      <section class="home-intro">
+        <p class="eyebrow">COMMUNITY</p>
+        <h1>What are your agents running?</h1>
+        <p>
+          See the hours people choose to share. These scores are self-reported
+          and unverified. More hours do not mean better work.
+        </p>
+        <p class="fine">
+          GitHub sign-in shows who owns a post. It does not prove the score is
+          true.
+        </p>
+      </section>
+      <section class="section board" aria-labelledby="board-title">
+        <h2 id="board-title">Recent scores</h2>
+        <p>Up to 50 scores per list, sorted by agent hours per day.</p>
+        <div class="segmented" role="group" aria-label="Score sessions">
+          <button type="button" id="interactive-only" aria-pressed="true">
+            Interactive only</button
+          ><button type="button" id="including-exec" aria-pressed="false">
+            Including batch / exec
+          </button>
+        </div>
+        <p id="board-status" role="status">Loading scores…</p>
+        <div class="table-scroll">
+          <table id="score-table" hidden>
+            <caption class="fine">
+              Self-reported agent runtime over 30 full days
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">GitHub account</th>
+                <th scope="col">Hours / day</th>
+                <th scope="col">30-day total</th>
+                <th scope="col">Window ends</th>
+              </tr>
+            </thead>
+            <tbody id="score-rows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="section studio" aria-labelledby="post-title">
+        <h2 id="post-title">Share your score</h2>
+        <p>
+          Load your score JSON to review it here. Nothing is posted until you
+          choose “Post my score.”
+        </p>
+        <p id="service-status" role="status">
+          Checking whether posting is available…
+        </p>
+        <p id="quota-status" role="status" class="status"></p>
+        <div class="two-col">
+          <div>
+            <label for="score-file"
+              >Choose score JSON
+              <span class="fine">32 KB max, read locally</span></label
+            ><input
+              id="score-file"
+              type="file"
+              accept=".json,application/json"
+            /><label for="score-json">Or paste score JSON</label
+            ><textarea
+              id="score-json"
+              rows="6"
+              spellcheck="false"
+              aria-describedby="import-status"
+              placeholder='{"schema": "agent-hours-score", …}'
+            ></textarea>
+            <div class="actions">
+              <button type="button" id="import">Load my score</button
+              ><button type="button" id="clear-draft">Clear score</button>
+            </div>
+            <p id="import-status" class="status" role="status"></p>
+            <p class="fine">
+              Only public score fields are accepted. No chats, file paths, or
+              daily logs. Your human hours are left out.
+            </p>
+          </div>
+          <div id="draft-review" hidden>
+            <h3>This is what you would make public</h3>
+            <p>
+              Your GitHub login, the score fields below, and the time you post.
+              Anyone can read them.
+            </p>
+            <dl id="score-summary" class="score-summary"></dl>
+            <details class="score-json-details">
+              <summary>View score JSON</summary>
+              <pre id="public-fields" class="public-fields"></pre>
+            </details>
+            <p id="identity" class="fine"></p>
+            <a
+              class="button"
+              id="sign-in"
+              href="/api/community/auth/login"
+              hidden
+              >Sign in with GitHub ↗</a
+            >
+            <p class="fine">
+              Sign-in keeps this score in this tab until you post or clear it.
+              Raw JSON input is never saved.
+            </p>
+            <button type="button" id="intend-post" disabled>
+              Continue to post
+            </button>
+            <div id="confirmation" hidden>
+              <p>
+                Ready to make these fields public? Complete the check, then
+                press “Post my score.”
+              </p>
+              <div id="turnstile"></div>
+              <button
+                type="button"
+                class="primary"
+                id="post-score"
+                hidden
+                disabled
+              >
+                Post my score</button
+              ><button type="button" id="cancel-post">Cancel</button>
+            </div>
+            <p id="post-status" role="status" class="status"></p>
+          </div>
+        </div>
+        <p class="fine">
+          You can post 5 times in any rolling 30 days, across both lists. A new
+          post replaces your score in that list. Deleting a score does not
+          return a post slot. We keep private post timestamps for the limit,
+          even after deletion, until that rolling window expires.
+        </p>
+      </section>
+      <section class="section" id="account" hidden>
+        <h2>Your public scores</h2>
+        <div id="own-scores"></div>
+        <p id="account-status" class="status" role="status"></p>
+        <button id="logout" type="button">Sign out</button>
+      </section>
+    </main>
+    <footer class="shell footer">
+      <a class="wordmark" href="/">≋ agent hours</a
+      ><span>Counted locally. Shared by choice.</span
+      ><a
+        href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/SECURITY.md"
+        >Security ↗</a
+      >
+    </footer>
+  </body>
+</html>

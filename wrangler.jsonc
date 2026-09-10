@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codex-agent-hour-tracker",
+  "pages_build_output_dir": "./site",
+  "compatibility_date": "2026-09-09",
+  "d1_databases": [
+    {
+      "binding": "COMMUNITY_DB",
+      "database_name": "agent-hours-community",
+      "database_id": "7273d5f1-5266-4dfd-b537-3f346f5cc982",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "SITE_ORIGIN": "https://agenthours.dev",
+    "SUBMISSIONS_ENABLED": "false",
+    "GITHUB_CLIENT_ID": "",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEuf6pQsaWyUtEa7"
+  },
+  "env": {
+    "preview": {
+      "d1_databases": [],
+      "vars": {
+        "SITE_ORIGIN": "",
+        "SUBMISSIONS_ENABLED": "false",
+        "GITHUB_CLIENT_ID": "",
+        "TURNSTILE_SITE_KEY": ""
+      }
+    }
+  }
+}

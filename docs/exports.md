@@ -17,9 +17,11 @@ Create with `agent-hours --share --format json`. The CLI fixes the window to 30 
 
 Leverage basis is `reported-period` or `estimated-weekly`. Reported-period leverage has a null weekly-hours field. Numeric values are finite and nonnegative. Supplied human hours are positive.
 
-The schema excludes daily rows, machine labels, account details, paths, identifiers, and diagnostics. The browser rejects private exports and unexpected fields. Imported scores are self-reported, not independently verified. A user can edit JSON, so these cards do not establish leaderboard eligibility or attest to an account's activity.
+The schema excludes daily rows, machine labels, account details, paths, identifiers, and diagnostics. The browser rejects private exports and unexpected fields. Imported scores are self-reported, not independently verified. A user can edit JSON, so scores do not attest to an account's activity.
 
 Pasting a score does not submit it to a server. PNG/SVG generation uses the same local renderer as the card preview. Exported images disclose the fields shown on the preview.
+
+Community posting is a separate, confirmed action. The server accepts this schema with `leverage: null` and links it to the signed-in GitHub login. It checks the date window and numeric bounds, not whether the claimed runtime happened. Interactive-only and exec-inclusive scores have separate boards. See [community rules](community.md).
 
 ## Private archive: `agent-hours-archive`, schema version 1
 

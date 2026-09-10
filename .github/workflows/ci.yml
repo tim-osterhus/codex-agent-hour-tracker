@@ -33,11 +33,31 @@ jobs:
         run: uv sync
       - name: Run tests
         run: uv run python -m unittest discover -s tests -v
-      - name: Check website calculations and benchmark registry
+      - name: Check benchmark registry
         if: matrix.python-version == '3.14'
-        run: |
-          node --test tests/site*.mjs
-          uv run python scripts/sync_benchmarks.py --check
+        run: uv run python scripts/sync_benchmarks.py --check
+
+  website:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Install website development tools
+        run: npm ci --ignore-scripts
+      - name: Test website and community API
+        run: npm test
+      - name: Build Pages Functions
+        run: npm run build:check
+      - name: Audit website development tools
+        run: npm audit --audit-level=high
 
   platform-smoke:
     runs-on: ${{ matrix.os }}
@@ -68,7 +88,7 @@ jobs:
         run: uv run codex-agent-hour-tracker --help
 
   package:
-    needs: [test, platform-smoke]
+    needs: [test, platform-smoke, website]
     runs-on: ubuntu-latest
     permissions:
       contents: read

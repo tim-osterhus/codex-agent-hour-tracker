@@ -243,7 +243,7 @@ class PublicSiteTests(unittest.TestCase):
         self.assertTrue(self.parser.tags_named("button"))
         self.assertTrue((SITE_ROOT / "benchmarks/index.html").is_file())
 
-    def test_site_has_no_remote_scripts_or_submission_surfaces(self) -> None:
+    def test_only_community_code_can_contact_the_network(self) -> None:
         for path in SITE_ROOT.rglob("*.html"):
             parser = _SiteHTMLParser()
             parser.feed(path.read_text(encoding="utf-8"))
@@ -255,7 +255,22 @@ class PublicSiteTests(unittest.TestCase):
                 self.assertFalse(attrs.get("action"))
         for path in (*SITE_ROOT.rglob("*.js"), *SITE_ROOT.rglob("*.mjs")):
             content = path.read_text(encoding="utf-8")
-            self.assertNotRegex(content, r"fetch\s*\(|localStorage|sessionStorage|indexedDB|XMLHttpRequest")
+            self.assertNotRegex(content, r"localStorage|indexedDB|XMLHttpRequest")
+            if path.name != "community.js":
+                self.assertNotRegex(content, r"fetch\s*\(|sendBeacon|WebSocket|EventSource")
+            if path.name not in ("app.js", "community.js"):
+                self.assertNotIn("sessionStorage", content)
+        community = (SITE_ROOT / "community.js").read_text(encoding="utf-8")
+        self.assertIn('fetch("/api/community/"', community)
+        self.assertIn('"X-CSRF-Token"', community)
+        remote_urls = set(re.findall(r'https://[^\s"\']+', community))
+        self.assertEqual(remote_urls, {
+            "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit",
+        })
+        app = (SITE_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn('state.handoff()', app)
+        self.assertNotIn('JSON.stringify', app[app.index('sessionStorage.setItem'):app.index('location.assign')])
+        self.assertTrue((SITE_ROOT / "community/index.html").is_file())
         self.assertIn("connect-src 'none'", self.headers)
         self.assertIn("form-action 'none'", self.headers)
         self.assertIn("frame-ancestors 'none'", self.headers)
