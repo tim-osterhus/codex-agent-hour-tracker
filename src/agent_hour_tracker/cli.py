@@ -353,7 +353,7 @@ def _archive_label(archive: dict, fallback: Path) -> str:
     label = archive.get("label")
     if isinstance(label, str) and label:
         return label
-    return str(fallback)
+    return _display_path(fallback)
 
 
 def _resolve_leverage(

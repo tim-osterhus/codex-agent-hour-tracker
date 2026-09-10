@@ -17,6 +17,7 @@ from agent_hour_tracker.metrics import (
     build_leverage,
     monthly_breakdown,
 )
+from agent_hour_tracker.report import render_monthly
 from agent_hour_tracker.share import build_public_share, render_share_json
 
 
@@ -107,7 +108,14 @@ class MetricsV020Tests(unittest.TestCase):
         self.assertEqual(months[0].end, date(2026, 1, 31))
         self.assertEqual(months[0].calendar_days, 2)
         self.assertEqual(months[0].agent_hours, 2.0)
+        self.assertEqual(months[0].mean_per_calendar_day, 1.0)
         self.assertEqual(months[1].calendar_days, 1)
+        self.assertEqual(months[1].mean_per_calendar_day, 1.0)
+
+        output = render_monthly(short_report_fixture())
+        self.assertIn("Agent-hours/day", output)
+        self.assertIn("2026-01", output)
+        self.assertIn("1.00", output)
 
 
 class ShareV020Tests(unittest.TestCase):

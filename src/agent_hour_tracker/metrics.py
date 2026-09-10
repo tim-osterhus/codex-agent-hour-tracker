@@ -177,8 +177,9 @@ def monthly_breakdown(report: ReportMetrics) -> tuple[MonthlyStat, ...]:
         for month, rows in grouped.items()
     )
 
+
 def _finite_number(value: Real, label: str) -> float:
-    if isinstance(value, bool):
+    if not isinstance(value, Real) or isinstance(value, bool):
         raise ValueError(f"{label} must be finite")  # noqa: TRY004 - one validation error type
     try:
         converted = float(value)

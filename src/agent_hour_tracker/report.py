@@ -6,7 +6,7 @@ import csv
 import io
 from datetime import date, tzinfo
 
-from .metrics import LeverageMetrics, ReportMetrics, monthly_breakdown
+from .metrics import DailyStat, LeverageMetrics, ReportMetrics, monthly_breakdown
 
 __all__ = ["render_csv", "render_monthly", "render_share", "render_text"]
 
@@ -79,18 +79,23 @@ def render_text(
 
 
 def render_monthly(report: ReportMetrics) -> str:
-    """Render monthly totals with explicit requested bounds and day counts."""
+    """Render monthly totals and requested-day averages.
+
+    A partial month uses only the rows covered by the requested report range,
+    including zero-use calendar days in that range.
+    """
 
     lines = [
         "MONTHLY AGENT-HOURS",
-        f"{'Month':<10}{'Requested bounds':<31}{'Days':>7}{'Agent-hours':>15}{'Completed turns':>18}{'Active days':>13}",
+        f"{'Month':<10}{'Requested bounds':<31}{'Calendar days':>15}{'Agent-hours':>15}{'Agent-hours/day':>18}{'Completed turns':>18}{'Active days':>13}",
     ]
     lines.extend(
         (
             f"{month.month:<10}"
-            f"{month.start.isoformat()} to {month.end.isoformat():<20}"
-            f"{month.calendar_days:>7}"
+            f"{month.start.isoformat()} to {month.end.isoformat():<17}"
+            f"{month.calendar_days:>15}"
             f"{month.agent_hours:>15.2f}"
+            f"{month.mean_per_calendar_day:>18.2f}"
             f"{month.completed_turns:>18}"
             f"{month.active_days:>13}"
         )
@@ -170,7 +175,7 @@ def render_csv(report: ReportMetrics) -> str:
 
 
 def _context_lines(
-    days: list,
+    days: list[DailyStat],
     *,
     start: date | None,
     end: date | None,

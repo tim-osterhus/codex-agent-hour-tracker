@@ -7,6 +7,7 @@ import math
 import re
 from collections.abc import Mapping
 from datetime import date, timedelta, tzinfo
+from numbers import Real
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -151,7 +152,7 @@ def render_share_json(
     end: date | None = None,
     timezone: tzinfo | str = "UTC",
     scope: str = "interactive-only",
-    leverage: LeverageMetrics | Mapping[str, Any] | None = None,
+    leverage: LeverageMetrics | None = None,
 ) -> str:
     """Serialize a public score using stable, finite JSON output."""
 
@@ -329,7 +330,7 @@ def _parse_iso_date(value: Any) -> date:
 
 
 def _finite(value: Any, label: str) -> float:
-    if isinstance(value, bool):
+    if not isinstance(value, Real) or isinstance(value, bool):
         raise ValueError(f"{label} must be finite")  # noqa: TRY004 - public validation uses ValueError
     try:
         converted = float(value)
