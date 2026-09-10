@@ -132,7 +132,7 @@ test("callback consumes state once, sends bounded external requests, and exposes
     now: NOW + 1_000,
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
-      assert.equal(options.redirect, "error");
+      assert.equal(options.redirect, "manual");
       assert.ok(options.signal instanceof AbortSignal);
       if (url.includes("access_token")) {
         assert.equal(options.method, "POST");

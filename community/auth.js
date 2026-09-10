@@ -272,7 +272,8 @@ export async function finishGitHubLogin(env, request, { now = Date.now(), fetchI
   try {
     tokenResponse = await fetchImpl("https://github.com/login/oauth/access_token", {
       method: "POST",
-      redirect: "error",
+      // Workers requires manual handling; boundedJson rejects redirect responses.
+      redirect: "manual",
       signal: AbortSignal.timeout(10_000),
       headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -293,7 +294,7 @@ export async function finishGitHubLogin(env, request, { now = Date.now(), fetchI
   let identityResponse;
   try {
     identityResponse = await fetchImpl("https://api.github.com/user", {
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(10_000),
       headers: {
         Accept: "application/vnd.github+json",

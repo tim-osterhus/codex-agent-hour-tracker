@@ -225,7 +225,8 @@ async function verifyTurnstile(env, request, token, requestId, fetchImpl) {
   try {
     const response = await fetchImpl("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
-      redirect: "error",
+      // Never forward the secret to a redirect target; non-OK responses fail below.
+      redirect: "manual",
       signal: AbortSignal.timeout(10_000),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
