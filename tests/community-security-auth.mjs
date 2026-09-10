@@ -162,7 +162,7 @@ test("OAuth uses fixed no-scope PKCE, one-time state, hardened cookies, and sess
     now: NOW,
     fetchImpl: async (url, init) => {
       fetchCalls += 1;
-      assert.equal(init.redirect, "error");
+      assert.equal(init.redirect, "manual");
       assert.ok(init.signal instanceof AbortSignal);
       if (fetchCalls === 1) {
         assert.equal(url, "https://github.com/login/oauth/access_token");
@@ -295,7 +295,7 @@ test("Turnstile receives the fixed action context, IP, and request idempotency k
           url,
           "https://challenges.cloudflare.com/turnstile/v0/siteverify",
         );
-        assert.equal(init.redirect, "error");
+        assert.equal(init.redirect, "manual");
         assert.ok(init.signal instanceof AbortSignal);
         const payload = JSON.parse(init.body);
         assert.deepEqual(payload, {
