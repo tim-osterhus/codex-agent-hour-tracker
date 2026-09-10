@@ -1,150 +1,362 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Measure cumulative Codex agent-hours locally, with an inspectable Archive Score.">
-    <title>agenthours.dev: measure your Codex work</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Measure Codex agent runtime locally. Explore parallel hours and agent leverage, then make a private share card."
+    />
+    <meta name="theme-color" content="#202320" />
+    <title>Agent Hours — Make parallel work visible.</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://agenthours.dev/" />
+    <meta
+      property="og:title"
+      content="Agent Hours — Make parallel work visible."
+    />
+    <meta
+      property="og:description"
+      content="Measure local Codex runtime, explore agent leverage, and create your own share card. No account. No upload."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://agenthours.dev/" />
+    <meta
+      property="og:image"
+      content="https://agenthours.dev/social-card.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Agent Hours scorecard with clearly labeled fabricated example values"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/benchmarks-data.js" defer></script>
+    <script type="module" src="/app.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
-    <div class="page-shell">
-      <header class="project-header">
-        <a class="wordmark" href="#challenge" aria-label="agenthours.dev home">agenthours.dev</a>
-        <p class="header-note">LOCAL CODEX TELEMETRY / OPEN METHOD</p>
-      </header>
-
-      <main id="main-content">
-        <section id="challenge" class="section challenge" aria-labelledby="page-title">
-          <div class="challenge-grid">
-            <div class="challenge-copy">
-              <p class="eyebrow">AGENT HOUR TRACKER <span aria-hidden="true">/</span> 30-DAY WINDOW</p>
-              <h1 id="page-title">How many hours a day does your Codex work?</h1>
-              <p class="lede">Several Codex agents can work while your editor feels quiet. Agent Hour Tracker counts completed parallel turns in your local archive.</p>
-
-              <div class="run-panel" aria-labelledby="run-heading">
-                <p class="panel-kicker" id="run-heading">START WITH A SANITIZED SCORE</p>
-                <div class="command-line">
-                  <code>uvx codex-agent-hour-tracker --share</code>
-                  <button class="copy-button" type="button" data-copy-command="uvx codex-agent-hour-tracker --share" aria-controls="copy-status">Copy command</button>
-                </div>
-                <p class="copy-status" id="copy-status" aria-live="polite"></p>
-                <p class="panel-note">Runs against the local Codex session archive. The command needs no account or upload.</p>
-              </div>
-
-              <a class="secondary-link" href="https://github.com/tim-osterhus/codex-agent-hour-tracker">Open the GitHub repository <span aria-hidden="true">↗</span></a>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="shell header">
+      <a class="wordmark" href="/"
+        ><span class="mark" aria-hidden="true">≋</span> agent hours<span
+          class="version"
+          >/ 0.2</span
+        ></a
+      >
+      <nav aria-label="Main">
+        <a href="#leverage">Leverage</a><a href="/benchmarks/">Benchmarks</a
+        ><a href="https://github.com/tim-osterhus/codex-agent-hour-tracker"
+          >Source ↗</a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="shell hero" aria-labelledby="title">
+        <div>
+          <p class="eyebrow">
+            <span class="signal"></span> LOCAL CODEX RUNTIME · OPEN METHOD
+          </p>
+          <h1 id="title">
+            Your day has 24 hours.<br /><em>Your agents can have more.</em>
+          </h1>
+          <p class="intro">
+            Measure the work happening in parallel. A local, inspectable score
+            from completed Codex turns, averaged over 30 full days.
+          </p>
+          <div class="run">
+            <label for="command">01 / Get your score</label>
+            <div class="command">
+              <code id="command"
+                >uvx codex-agent-hour-tracker --share --format json</code
+              ><button id="copy-command" type="button">Copy ↗</button>
             </div>
-
-            <aside class="score-receipt" aria-labelledby="receipt-heading">
-              <div class="receipt-topline">
-                <span id="receipt-heading">ARCHIVE SCORE</span>
-                <span class="receipt-state">LOCAL / SYNTHETIC</span>
-              </div>
-              <p class="receipt-label">Synthetic example</p>
-              <p class="receipt-caption">Fabricated values to show the shape of a share card. Not a personal score.</p>
-              <dl class="score-list">
-                <div>
-                  <dt>Agent-hours / day</dt>
-                  <dd>12.34</dd>
-                </div>
-                <div>
-                  <dt>Total</dt>
-                  <dd>370.20</dd>
-                </div>
-                <div>
-                  <dt>Peak</dt>
-                  <dd>31.80</dd>
-                </div>
-              </dl>
-              <div class="receipt-footer">
-                <span>30 completed days</span>
-                <span>10 active days</span>
-              </div>
-            </aside>
+            <p id="copy-status" class="status" role="status"></p>
+            <p class="fine">
+              Requires
+              <a href="https://docs.astral.sh/uv/getting-started/installation/"
+                >uv</a
+              >
+              and local Codex sessions. Runs on your machine.
+            </p>
+            <details>
+              <summary>Using pip instead?</summary>
+              <code class="install"
+                >python -m pip install codex-agent-hour-tracker<br />agent-hours
+                --share --format json</code
+              >
+              <p class="fine">
+                Python 3.11 or later. Run the score command in your terminal,
+                then paste its JSON below.
+              </p>
+            </details>
           </div>
-        </section>
-
-        <section id="meaning" class="section section-rule" aria-labelledby="meaning-heading">
-          <div class="section-heading">
-            <p class="eyebrow">01 / WHAT THE NUMBER MEANS</p>
-            <h2 id="meaning-heading">Cumulative time, not wall-clock time.</h2>
+        </div>
+        <div class="hero-score">
+          <div class="preview-heading">
+            <span id="preview-state">FABRICATED EXAMPLE</span
+            ><span>30-DAY AGENT-HOUR SCORE</span>
           </div>
-          <div class="meaning-grid">
-            <p class="body-copy">Cumulative agent-hours add the completed duration of each agent turn. The tracker sums overlapping turns independently: three agents running for an hour count as three agent-hours, even though only one hour passed on the clock.</p>
-            <div class="definition-note">
-              <span class="note-label">ARCHIVE SCORE</span>
-              <p>Mean cumulative agent-hours per calendar day across exactly the 30 most recent completed local calendar days ending yesterday, including zero-use days.</p>
+          <img
+            id="score-preview"
+            alt="Fabricated example score: 12.4 agent hours per day"
+            width="1200"
+            height="630"
+          />
+          <div class="preview-actions">
+            <a class="button primary" href="#share">Make your share card ↗</a
+            ><span class="fine">No account. No upload.</span>
+          </div>
+        </div>
+      </section>
+      <section class="parallel shell section" aria-labelledby="parallel-title">
+        <div class="section-label">01 / READING THE CLOCK</div>
+        <div class="two-col">
+          <div>
+            <h2 id="parallel-title">
+              One hour on the clock.<br /><span id="parallel-hours"
+                >Three agent-hours.</span
+              >
+            </h2>
+            <p>
+              Runtime adds across agents. Three agents each working for one hour
+              count as three agent-hours, even when they run together.
+            </p>
+            <p class="fine">
+              This measures completed agent runtime. It does not measure output
+              quality, productivity, or human time saved.
+            </p>
+          </div>
+          <div class="parallel-demo">
+            <div class="demo-top">
+              <span>ONE ELAPSED HOUR</span
+              ><button id="pause" type="button" aria-pressed="false">
+                Pause motion
+              </button>
+            </div>
+            <div
+              class="lanes"
+              id="lanes"
+              aria-label="Three parallel agent lanes"
+            >
+              <div class="lane">
+                <span>AGENT 01</span>
+                <div class="track"></div>
+                <b>1h</b>
+              </div>
+              <div class="lane">
+                <span>AGENT 02</span>
+                <div class="track"></div>
+                <b>1h</b>
+              </div>
+              <div class="lane">
+                <span>AGENT 03</span>
+                <div class="track"></div>
+                <b>1h</b>
+              </div>
+              <div class="lane" hidden>
+                <span>AGENT 04</span>
+                <div class="track"></div>
+                <b>1h</b>
+              </div>
+              <div class="lane" hidden>
+                <span>AGENT 05</span>
+                <div class="track"></div>
+                <b>1h</b>
+              </div>
+              <div class="lane" hidden>
+                <span>AGENT 06</span>
+                <div class="track"></div>
+                <b>1h</b>
+              </div>
+            </div>
+            <label class="range-label" for="agent-count"
+              >Parallel agents <output id="agent-count-value">3</output></label
+            ><input id="agent-count" type="range" min="1" max="6" value="3" />
+            <p class="fine">
+              Each full lane represents one agent-hour. Motion illustrates
+              concurrency.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="light-section" id="leverage">
+        <div class="shell section">
+          <div class="section-label">02 / AGENT LEVERAGE</div>
+          <div class="two-col">
+            <div>
+              <h2>How much runtime<br />per human hour?</h2>
+              <p>
+                Explore the ratio of agent runtime to the time you put in, using
+                the same 30-day window.
+              </p>
+              <div class="calculator">
+                <label for="runtime"
+                  >Agent runtime / day <span>hours</span></label
+                ><input
+                  id="runtime"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value="12.4"
+                  inputmode="decimal"
+                /><label for="human">Your time / week <span>hours</span></label
+                ><input
+                  id="human"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value="40"
+                  inputmode="decimal"
+                />
+                <div class="presets" aria-label="Human hours per week presets">
+                  <button type="button" data-human="20" aria-pressed="false">
+                    20h / week</button
+                  ><button type="button" data-human="40" aria-pressed="true">
+                    40h / week</button
+                  ><button type="button" data-human="60" aria-pressed="false">
+                    60h / week
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="leverage-result">
+              <p class="eyebrow">ESTIMATED AGENT LEVERAGE</p>
+              <p class="ratio" id="ratio">2.17<span>×</span></p>
+              <p id="ratio-description" role="status">
+                2.17 agent-hours for each human hour.
+              </p>
+              <div class="equation" id="equation">
+                372 agent hours ÷ 171.43 estimated human hours
+              </div>
+              <p class="fine">
+                Human hours = weekly hours × 30 ÷ 7. This is a scenario, not a
+                measured archive score. It never changes your share card.
+              </p>
+              <img
+                id="benchmark-bars"
+                class="comparison"
+                alt="Your scenario compared with the published OpenAI research organization ratio; different populations"
+                width="480"
+                height="104"
+              />
+              <p class="fine" id="reference-ratio" role="status"></p>
+              <p class="fine" id="benchmark-context"></p>
+              <a href="/benchmarks/" class="text-link"
+                >Read published reference points ↗</a
+              >
             </div>
           </div>
-        </section>
-
-        <section id="run-it" class="section section-rule" aria-labelledby="run-it-heading">
-          <div class="section-heading">
-            <p class="eyebrow">02 / RUN IT LOCALLY</p>
-            <h2 id="run-it-heading">One command. An inspectable result.</h2>
-          </div>
-          <div class="run-grid">
-            <p class="body-copy">Use <code>uvx</code> to run the published CLI without a project checkout. It scans completed root and delegated turns, applies bounded timing rules, and prints the sanitized aggregate card.</p>
-            <ol class="steps">
-              <li><span>01</span><p>Paste the command above into a terminal with your local Codex archive.</p></li>
-              <li><span>02</span><p>Read the score, dates, and diagnostics before deciding whether to share.</p></li>
-              <li><span>03</span><p>Open the <a href="https://pypi.org/project/codex-agent-hour-tracker/">published package</a> or inspect the <a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md">methodology</a> when you want the rules.</p></li>
-            </ol>
-          </div>
-        </section>
-
-        <section id="privacy" class="section section-rule" aria-labelledby="privacy-heading">
-          <div class="section-heading">
-            <p class="eyebrow">03 / PRIVACY BOUNDARY</p>
-            <h2 id="privacy-heading">Measure the archive without opening the conversation.</h2>
-          </div>
-          <div class="privacy-grid">
-            <p class="body-copy">Calculation stays local. The scanner retains bounded timing metadata and does not decode conversation content. There is no upload through this site or the CLI.</p>
-            <div class="boundary-list">
-              <p><span aria-hidden="true">→</span> <strong>Share card:</strong> <code>--share</code> is a bounded aggregate designed for sharing, but it is still an intentional disclosure.</p>
-              <p><span aria-hidden="true">→</span> <strong>Detailed reports:</strong> Full and CSV reports reveal semi-sensitive day-level patterns. Review them before distribution.</p>
-              <p><span aria-hidden="true">→</span> <strong>Source:</strong> The page has no analytics, cookies, external scripts, or data connection.</p>
+        </div>
+      </section>
+      <section
+        class="shell section studio"
+        id="share"
+        aria-labelledby="studio-title"
+      >
+        <div class="section-label">03 / SHARE THE MEASUREMENT</div>
+        <div class="two-col">
+          <div>
+            <h2 id="studio-title">Your score.<br />Your machine.</h2>
+            <p>
+              Paste the public JSON from the command above. Your browser
+              validates the aggregate fields and renders the card locally.
+            </p>
+            <label for="score-json"
+              >Public score JSON <span class="fine">32 KB maximum</span></label
+            ><textarea
+              id="score-json"
+              rows="8"
+              spellcheck="false"
+              placeholder='{"schema": "agent-hours-score", …}'
+              aria-describedby="import-status privacy-note"
+            ></textarea>
+            <div class="actions">
+              <button class="primary" id="import" type="button">
+                Preview my score ↗</button
+              ><button id="example" type="button">Reset to example</button>
             </div>
+            <p id="import-status" role="status" class="status">
+              Showing fabricated example data.
+            </p>
+            <p class="fine" id="privacy-note">
+              Only versioned public score JSON is accepted. Private archives,
+              extra fields, IDs, paths, and daily logs are rejected. Nothing is
+              uploaded or saved by this page. The local tracker reads timing
+              metadata without decoding conversation content. Review your card
+              before sharing.
+            </p>
           </div>
-        </section>
-
-        <section id="methodology" class="section section-rule" aria-labelledby="methodology-heading">
-          <div class="section-heading">
-            <p class="eyebrow">04 / METHODOLOGY</p>
-            <h2 id="methodology-heading">A small set of explicit rules.</h2>
+          <div class="export-panel">
+            <div class="export-top">
+              <h3>Card format</h3>
+              <div class="segmented" role="group" aria-label="Card format">
+                <button id="landscape" type="button" aria-pressed="true">
+                  Landscape</button
+                ><button id="square" type="button" aria-pressed="false">
+                  Square
+                </button>
+              </div>
+            </div>
+            <img
+              id="export-preview"
+              alt="Share card preview using fabricated example data"
+              width="1200"
+              height="630"
+            />
+            <div class="actions">
+              <button id="download-png" type="button">Download PNG ↓</button
+              ><button id="download-svg" type="button">Download SVG ↓</button>
+            </div>
+            <p id="download-status" class="fine" role="status">
+              1200 × 630 · Example is labeled on the image.
+            </p>
           </div>
-          <div class="method-grid">
-            <p class="body-copy">The tracker attributes each completed turn to its local start date. It caps event gaps at 30 minutes, uses bounded fallbacks for sparse timelines, and removes duplicate turn IDs before aggregation. The full rules and limitations are public.</p>
-            <ul class="method-links">
-              <li><a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md">Read the methodology <span aria-hidden="true">↗</span></a></li>
-              <li><a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/SECURITY.md">Read the security policy <span aria-hidden="true">↗</span></a></li>
-            </ul>
+        </div>
+      </section>
+      <section class="shell method section">
+        <div class="section-label">04 / WHAT COUNTS</div>
+        <div class="method-grid">
+          <div>
+            <h3>30 completed days</h3>
+            <p>
+              Yesterday and the 29 days before it, in your selected timezone.
+              Zero-use days stay in the average.
+            </p>
           </div>
-        </section>
-
-        <section id="share" class="section section-rule share-section" aria-labelledby="share-heading">
-          <div class="section-heading">
-            <p class="eyebrow">05 / CONTEXT, CAREFULLY</p>
-            <h2 id="share-heading">A big number can be real without being a ranking.</h2>
+          <div>
+            <h3>Completed agent runtime</h3>
+            <p>
+              Active timing from local Codex sessions. Concurrent turns add
+              together; matching turn IDs are deduplicated.
+            </p>
           </div>
-          <div class="share-copy">
-            <p>By June 2026, among daily active users at OpenAI, the 99th percentile regularly generated more than 60 hours of Codex agent turns per day across parallel agents.</p>
-            <p class="source-line">That is an official population benchmark, not a claim about ordinary or personal users. <a href="https://openai.com/index/how-agents-are-transforming-work/">Read the source at OpenAI <span aria-hidden="true">↗</span></a></p>
-            <p class="share-invitation">Want to show the result? Post or share a terminal screenshot of this sanitized Archive Score card. It is the bounded aggregate designed for sharing, but its dates, counts, and durations remain an intentional disclosure. Review the image before posting.</p>
+          <div>
+            <h3>Scope stays visible</h3>
+            <p>
+              Interactive-only is the default. Add
+              <code>--include-exec</code> to count batch / exec sessions too.
+            </p>
           </div>
-        </section>
-      </main>
-
-      <footer class="site-footer">
-        <p class="footer-mark">agenthours.dev <span aria-hidden="true">/</span> inspectable by default</p>
-        <nav aria-label="Project resources">
-          <a href="https://pypi.org/project/codex-agent-hour-tracker/">PyPI</a>
-          <a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md">Methodology</a>
-          <a href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/SECURITY.md">Security</a>
-        </nav>
-      </footer>
-    </div>
-    <script src="app.js" defer></script>
+        </div>
+        <a
+          class="text-link"
+          href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md"
+          >Inspect the methodology ↗</a
+        >
+      </section>
+    </main>
+    <footer class="shell footer">
+      <a class="wordmark" href="/">≋ agent hours</a
+      ><span>Built for parallel work. Measured locally.</span
+      ><a href="https://pypi.org/project/codex-agent-hour-tracker/">PyPI ↗</a
+      ><a
+        href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/SECURITY.md"
+        >Security ↗</a
+      ><a href="https://github.com/tim-osterhus/codex-agent-hour-tracker"
+        >Open source ↗</a
+      >
+    </footer>
   </body>
 </html>

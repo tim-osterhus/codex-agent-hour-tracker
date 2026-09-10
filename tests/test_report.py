@@ -89,7 +89,7 @@ class ReportTests(unittest.TestCase):
             "Completed turns: 842\n"
             "Active days: 24/30\n"
             "\n"
-            "Archive Score | methodology v1 | tracker v0.1.0\n"
+            "Agent-Hour Score | methodology v1 | tracker v0.1.0\n"
             "Calculated locally. No conversation content uploaded.\n",
         )
         self.assertNotIn("UTC", output)

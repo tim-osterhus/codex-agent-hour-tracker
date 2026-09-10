@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Published context for agent runtime and leverage, with source dates, units, and populations kept separate."
+    />
+    <title>Benchmarks — Agent Hours</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/benchmarks-data.js" defer></script>
+    <script src="/benchmarks.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="shell header">
+      <a class="wordmark" href="/"
+        ><span class="mark" aria-hidden="true">≋</span> agent hours<span
+          class="version"
+          >/ 0.2</span
+        ></a
+      >
+      <nav aria-label="Main">
+        <a href="/#leverage">Calculator</a><a href="/">Make a score ↗</a>
+      </nav>
+    </header>
+    <main class="shell" id="main">
+      <div class="benchmark-intro">
+        <p class="eyebrow">PUBLISHED REFERENCES / DIFFERENT POPULATIONS</p>
+        <h1>Context, not a leaderboard.</h1>
+        <p>
+          Agent leverage and agent runtime answer different questions. These
+          published numbers describe specific groups and periods. Neither
+          establishes your productivity or an individual percentile.
+        </p>
+      </div>
+      <div id="benchmarks">
+        <noscript
+          ><p>
+            Enable JavaScript to display the dated benchmark registry. Sources:
+            <a
+              href="https://openai.com/index/research-acceleration-view-inside-openai/"
+              >Research acceleration inside OpenAI (September 6, 2026)</a
+            >
+            and
+            <a href="https://openai.com/index/how-agents-are-transforming-work/"
+              >How agents are transforming work (June 25, 2026)</a
+            >.
+          </p></noscript
+        >
+      </div>
+      <section class="section">
+        <h2>Keep the denominator in view.</h2>
+        <div class="method-grid">
+          <div>
+            <h3>Agent-hours / human hour</h3>
+            <p>
+              A runtime ratio. Human hours and agent hours must cover the same
+              period. Weekly human hours in our calculator are an explicit
+              estimate.
+            </p>
+          </div>
+          <div>
+            <h3>Agent-hours / active day</h3>
+            <p>
+              A daily runtime statistic for active users. Its denominator
+              differs from our score’s 30 calendar days, which include zero-use
+              days.
+            </p>
+          </div>
+          <div>
+            <h3>Your Agent-Hour Score</h3>
+            <p>
+              Local completed runtime, with a visible timezone and scope. A
+              different tool, population, or timing method can change what the
+              numbers mean.
+            </p>
+          </div>
+        </div>
+        <a class="button primary" href="/#leverage"
+          >Explore your own scenario ↗</a
+        >
+      </section>
+    </main>
+    <footer class="shell footer">
+      <a class="wordmark" href="/">≋ agent hours</a
+      ><span>Source dates and populations travel with the numbers.</span>
+    </footer>
+  </body>
+</html>

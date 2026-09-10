@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
+import math
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from math import ceil
+from numbers import Real
 from statistics import median
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from .scanner import CompletedTurn
 
-__all__ = ["DailyStat", "ReportMetrics", "build_report_metrics"]
+__all__ = [
+    "DailyStat",
+    "LeverageMetrics",
+    "MonthlyStat",
+    "ReportMetrics",
+    "build_leverage",
+    "build_report_metrics",
+    "monthly_breakdown",
+]
 
 HISTOGRAM_LABELS = (
     "0",
@@ -53,6 +64,137 @@ class ReportMetrics:
     human_initiated_top_level_turns: int = 0
     mean_human_initiated_turn_seconds: float = 0.0
     median_human_initiated_turn_seconds: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class LeverageMetrics:
+    """Agent-hours relative to a reported or estimated human-hour basis."""
+
+    ratio: float
+    human_hours: float
+    basis: Literal["reported-period", "estimated-weekly"]
+    human_hours_per_week: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MonthlyStat:
+    """Aggregate metrics for the requested portion of one calendar month."""
+
+    month: str
+    start: date
+    end: date
+    calendar_days: int
+    agent_hours: float
+    completed_turns: int
+    active_days: int
+
+    @property
+    def days(self) -> int:
+        """Compatibility alias for the number of rows in this month."""
+
+        return self.calendar_days
+
+    @property
+    def mean_per_calendar_day(self) -> float:
+        """Return cumulative agent-hours divided by requested days."""
+
+        return self.agent_hours / self.calendar_days if self.calendar_days else 0.0
+
+
+def build_leverage(
+    total_agent_hours: Real,
+    *,
+    human_hours: Real | None = None,
+    human_hours_per_week: Real | None = None,
+    calendar_day_count: Real | None = None,
+) -> LeverageMetrics:
+    """Calculate agent leverage from one explicit human-hours basis.
+
+    ``human_hours`` is the total human-hour denominator for the requested
+    report period. ``human_hours_per_week`` derives that denominator from
+    the inclusive calendar-day count and is labeled as an estimate.
+
+    Raises:
+        ValueError: If the basis is missing, conflicting, non-finite, or not
+            strictly positive, or if the resulting ratio is not finite.
+    """
+
+    if (human_hours is None) == (human_hours_per_week is None):
+        raise ValueError(
+            "provide exactly one of human_hours or human_hours_per_week"
+        )
+    agent_hours = _finite_number(total_agent_hours, "total agent hours")
+    if agent_hours < 0.0:
+        raise ValueError("total agent hours must be nonnegative")
+
+    if human_hours is not None:
+        denominator = _positive_number(human_hours, "human hours")
+        basis: Literal["reported-period", "estimated-weekly"] = (
+            "reported-period"
+        )
+        weekly_value = None
+    else:
+        weekly_value = _positive_number(
+            human_hours_per_week, "human hours per week"
+        )
+        if calendar_day_count is None:
+            raise ValueError(
+                "calendar_day_count is required for weekly human hours"
+            )
+        day_count = _positive_number(calendar_day_count, "calendar day count")
+        denominator = weekly_value * day_count / 7.0
+        if not math.isfinite(denominator) or denominator <= 0.0:
+            raise ValueError("estimated human hours must be finite and positive")
+        basis = "estimated-weekly"
+
+    ratio = agent_hours / denominator
+    if not math.isfinite(ratio):
+        raise ValueError("leverage ratio must be finite")
+    return LeverageMetrics(
+        ratio=ratio,
+        human_hours=denominator,
+        basis=basis,
+        human_hours_per_week=weekly_value,
+    )
+
+
+def monthly_breakdown(report: ReportMetrics) -> tuple[MonthlyStat, ...]:
+    """Group daily rows by month while retaining requested partial bounds."""
+
+    grouped: dict[str, list[DailyStat]] = {}
+    for day in sorted(report.days, key=lambda item: item.date):
+        grouped.setdefault(day.date.strftime("%Y-%m"), []).append(day)
+    return tuple(
+        MonthlyStat(
+            month=month,
+            start=rows[0].date,
+            end=rows[-1].date,
+            calendar_days=len(rows),
+            agent_hours=sum(row.agent_hours for row in rows),
+            completed_turns=sum(row.completed_turns for row in rows),
+            active_days=sum(row.agent_hours > 0.0 for row in rows),
+        )
+        for month, rows in grouped.items()
+    )
+
+
+def _finite_number(value: Real, label: str) -> float:
+    if not isinstance(value, Real) or isinstance(value, bool):
+        raise ValueError(f"{label} must be finite")  # noqa: TRY004 - one validation error type
+    try:
+        converted = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(f"{label} must be finite") from None
+    if not math.isfinite(converted):
+        raise ValueError(f"{label} must be finite")
+    return converted
+
+
+def _positive_number(value: Real, label: str) -> float:
+    converted = _finite_number(value, label)
+    if converted <= 0.0:
+        raise ValueError(f"{label} must be positive")
+    return converted
 
 
 def build_report_metrics(

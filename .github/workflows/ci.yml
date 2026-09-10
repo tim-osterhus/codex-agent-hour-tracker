@@ -33,6 +33,11 @@ jobs:
         run: uv sync
       - name: Run tests
         run: uv run python -m unittest discover -s tests -v
+      - name: Check website calculations and benchmark registry
+        if: matrix.python-version == '3.14'
+        run: |
+          node --test tests/site*.mjs
+          uv run python scripts/sync_benchmarks.py --check
 
   platform-smoke:
     runs-on: ${{ matrix.os }}
