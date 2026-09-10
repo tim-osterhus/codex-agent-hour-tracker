@@ -32,4 +32,3 @@ export function clearCookie(name) {
     expires: new Date(0),
   });
 }
-

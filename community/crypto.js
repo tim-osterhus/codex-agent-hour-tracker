@@ -45,4 +45,3 @@ export function timingSafeEqual(left, right) {
   }
   return difference === 0;
 }
-
