@@ -1,6 +1,8 @@
 # Methodology
 
-Agent Hour Tracker scans local Codex session JSONL files and retains completed-turn timing metadata. The implementation and tests in `src/agent_hour_tracker/` and `tests/` define the behavior described here.
+Agent Hour Tracker scans local Codex session `.jsonl` and `.jsonl.zst` files and retains completed-turn timing metadata. The implementation and tests in `src/agent_hour_tracker/` and `tests/` define the behavior described here.
+
+The scanner decompresses compressed rollouts as a binary stream and uses the same metadata parser as plain files. The scanner retains one record at a time and decodes only bounded metadata scalars. If matching plain and compressed files exist in the same directory, scans and private exports select the plain file once. Global turn and source deduplication then applies as usual.
 
 ## Timing
 
@@ -65,6 +67,8 @@ OpenAI reports an aggregate ratio of 3.1 agent-workdays per human workday for it
 The historical internal P99 reference exceeds 60 agent-hours per active day in June 2026. Its daily-active denominator differs from this tool's 30-calendar-day score. It does not establish a current external-user percentile. [June 25 source](https://openai.com/index/how-agents-are-transforming-work/)
 
 ## Diagnostics
+
+Invalid or truncated compressed streams increment `decompression_errors` and the affected file count. Completed observations read before a stream failure remain eligible. Private exports preserve these aggregate diagnostics. Older private archives without `decompression_errors` load with a zero count.
 
 The CLI reports malformed candidate lines and affected file counts. It reports incomplete turns, unmatched completions, duration fallbacks, event-timing fallbacks, duplicate observations, and excluded batch turns when those counts are nonzero. A normal report also lists unknown source fingerprints. `--share` keeps diagnostics aggregate-only and omits source labels and file paths.
 

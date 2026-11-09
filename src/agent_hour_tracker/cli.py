@@ -443,6 +443,7 @@ def _write_archive_diagnostics(archive: dict, stderr: TextIO) -> None:
         ("excluded_batch_turns", "Excluded batch turns"),
         ("unsupported_paths", "Unsupported paths"),
         ("missing_paths", "Missing paths"),
+        ("decompression_errors", "Decompression errors"),
         ("traversal_errors", "Traversal errors"),
     )
     for field_name, display_name in labels:
@@ -611,6 +612,7 @@ def _write_boundary_diagnostics(
 ) -> None:
     for field_name, display_name in (
         ("open_errors", "Open errors"),
+        ("decompression_errors", "Decompression errors"),
         ("traversal_errors", "Traversal errors"),
         ("missing_paths", "Missing paths"),
         ("unsupported_paths", "Unsupported paths"),

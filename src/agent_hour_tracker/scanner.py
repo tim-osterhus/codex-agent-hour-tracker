@@ -12,6 +12,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .session_io import (
+    DECOMPRESSION_ERRORS,
+    is_session_file,
+    open_session,
+    prefer_plain_session,
+)
+
 __all__ = [
     "CompletedTurn",
     "ScanDiagnostics",
@@ -64,6 +71,7 @@ class ScanDiagnostics:
     excluded_batch_turns: int = 0
     unknown_sources: Counter[str] = field(default_factory=Counter)
     malformed_files: set[Path] = field(default_factory=set)
+    decompression_errors: int = 0
     open_errors: int = 0
     traversal_errors: int = 0
     missing_paths: int = 0
@@ -92,7 +100,12 @@ def scan_sessions(sessions_dir: Path) -> ScanResult:
     best_turns: dict[object, _ParsedTurn] = {}
     best_root_turns: dict[object, _ParsedTurn] = {}
 
-    for session_file in sorted(sessions_dir.rglob("*.jsonl")):
+    session_files = {
+        prefer_plain_session(path)
+        for path in sessions_dir.rglob("*")
+        if is_session_file(path)
+    }
+    for session_file in sorted(session_files):
         diagnostics.files_scanned += 1
         source_kind, unknown_labels, file_turns = _scan_file(
             session_file, diagnostics
@@ -170,7 +183,7 @@ def _scan_file(
     unknown_labels: set[str] = set()
 
     try:
-        with session_file.open("rb") as handle:
+        with open_session(session_file) as handle:
             for raw_line in handle:
                 event_timestamp = _top_level_timestamp(raw_line)
                 if event_timestamp is not None:
@@ -230,6 +243,9 @@ def _scan_file(
                         unknown_labels.add("unknown:malformed")
                     diagnostics.malformed_lines += 1
                     diagnostics.malformed_files.add(session_file)
+    except DECOMPRESSION_ERRORS:
+        diagnostics.decompression_errors += 1
+        diagnostics.malformed_files.add(session_file)
     except OSError:
         diagnostics.open_errors += 1
         diagnostics.malformed_files.add(session_file)

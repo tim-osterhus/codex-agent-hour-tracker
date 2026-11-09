@@ -27,6 +27,8 @@ Community posting is a separate, confirmed action. The server accepts this schem
 
 Create with `agent-hours --export reports/machine.agent-hours-private.json --label machine`. Export collects available timing observations across the selected directories, including exec/batch observations. It is not a date-bounded public score.
 
+Scans and exports accept both `.jsonl` and `.jsonl.zst` rollouts. Merge exports created by version 0.2.1 with Agent Hours 0.2.1 or newer. Version 0.2.0 rejects the new `decompression_errors` diagnostic field. Version 0.2.1 still reads older private exports.
+
 The archive contains a methodology version, optional user label, compact observations, and diagnostics. Each observation includes a deterministic hash of the typed turn identifier, start timestamp, duration, timing usability, and source class. It contains no conversation payloads or raw turn identifiers.
 
 Retaining the best observation per source class lets a later merge apply source selection before deduplication. It also preserves the independent human-root sample. The merge rejects incompatible versions and malformed data rather than silently reinterpreting them.

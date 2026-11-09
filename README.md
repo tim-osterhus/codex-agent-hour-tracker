@@ -116,6 +116,8 @@ Agent-hours measure runtime, not useful output, human-equivalent labor, or time 
 
 The scanner retains compact timing metadata without decoding conversation, reasoning, or tool payloads. No session data leaves the machine through the CLI. Compacted records remain supported while completed-turn metadata survives.
 
+Scans and private exports read both `.jsonl` and `.jsonl.zst` rollouts. When both forms exist beside each other, the plain file takes precedence. Compressed input streams through the same metadata parser. Invalid or truncated compressed streams produce aggregate decompression diagnostics.
+
 ## Development
 
 ```bash

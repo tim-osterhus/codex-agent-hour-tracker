@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from . import METHODOLOGY_VERSION
+from .session_io import is_session_file, prefer_plain_session
 from .scanner import (
     CompletedTurn,
     ScanDiagnostics,
@@ -65,6 +66,7 @@ _DIAGNOSTIC_COUNTERS = (
     "duplicate_turns",
     "excluded_batch_turns",
     "malformed_files",
+    "decompression_errors",
     "open_errors",
     "traversal_errors",
     "missing_paths",
@@ -101,7 +103,13 @@ def collect_archive(paths: list[Path], *, label: str = "") -> dict:
     }
     best_by_source: dict[tuple[str, str], _ParsedTurn] = {}
 
+    seen_files: set[Path] = set()
     for session_file in _iter_session_files(paths, path_diagnostics):
+        session_file = prefer_plain_session(session_file)
+        identity = session_file.absolute()
+        if identity in seen_files:
+            continue
+        seen_files.add(identity)
         scan_diagnostics.files_scanned += 1
         source_kind, unknown_labels, file_turns = _scan_file(
             session_file, scan_diagnostics
@@ -256,7 +264,7 @@ def _iter_session_files(
             if candidate.is_dir():
                 yield from _walk_session_directory(candidate, diagnostics)
             elif candidate.is_file():
-                if candidate.suffix == ".jsonl":
+                if is_session_file(candidate):
                     yield candidate
                 else:
                     diagnostics["unsupported_paths"] += 1
@@ -278,7 +286,7 @@ def _walk_session_directory(
         ):
             directory_names.sort()
             for file_name in sorted(file_names):
-                if file_name.endswith(".jsonl"):
+                if is_session_file(Path(file_name)):
                     yield Path(root) / file_name
     except OSError:
         diagnostics["traversal_errors"] += 1
