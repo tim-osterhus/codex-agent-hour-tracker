@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1
+
+- Read `.jsonl.zst` rollouts in local scans and private exports on Python 3.11–3.14.
+- Prefer the plain file when matching plain and compressed rollouts exist together.
+- Report invalid and truncated compressed streams without exposing transcript content.
+- Preserve existing timing, source classification, and global turn deduplication rules.
+- Require Agent Hours 0.2.1 or newer to merge new private exports. Older private exports remain readable.
+
 ## Unreleased website update
 
 - Put the local score card directly below the run command, with Upload and Preview tabs.

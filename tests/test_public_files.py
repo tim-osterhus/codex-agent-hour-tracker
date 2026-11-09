@@ -208,7 +208,7 @@ class PublicFilesTests(unittest.TestCase):
         with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
             metadata = tomllib.load(handle)
         self.assertEqual(metadata["project"]["version"], __version__)
-        self.assertEqual(__version__, "0.2.0")
+        self.assertEqual(__version__, "0.2.1")
         for alias in ("agent-hours", "codex-agent-hour-tracker"):
             self.assertEqual(metadata["project"]["scripts"][alias], "agent_hour_tracker.cli:main")
         self.assertIn("/CHANGELOG.md", metadata["tool"]["hatch"]["build"]["targets"]["sdist"]["include"])

@@ -14,7 +14,7 @@ The `--share` command emits a bounded aggregate designed for sharing. Sharing it
 
 ## Data boundaries
 
-The scanner reads local archive bytes and decodes only bounded timing and source metadata. It does not decode conversation, reasoning, or tool payloads. The CLI does not send session data over the network.
+The scanner reads local plain or Zstandard-compressed archive bytes and decodes only bounded timing and source metadata. It does not decode conversation, reasoning, or tool payloads. The CLI does not send session data over the network.
 
 Private merge exports retain exact start timestamps, durations, source classes, and persistent hashed turn identifiers. Hashes permit correlation and do not anonymize activity. Keep these exports private. Full text and CSV reports also reveal activity patterns.
 
