@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+- Add `agent-hours account-usage` for private, service-reported ChatGPT account usage JSON and daily CSV.
+- Fingerprint account identity by default; require explicit flags for plaintext identity or stdout.
+- Keep account usage separate from public share cards and the community scoreboard.
+
 ## 0.2.1
 
 - Read `.jsonl.zst` rollouts in local scans and private exports on Python 3.11–3.14.

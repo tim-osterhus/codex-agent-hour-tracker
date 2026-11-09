@@ -38,3 +38,7 @@ Precise timestamps and persistent hashes reveal activity patterns and permit cor
 ## Reproduction
 
 Use the same methodology, scope, date bounds, timezone, and input archives to reproduce a report. Individual input subtotals may overlap. Use the globally deduplicated combined total. Session histories that have been removed or rewritten can change later measurements.
+
+## Account usage
+
+`agent-hours account-usage --label NAME` writes a separate private account schema and daily CSV. It cannot be merged into runtime archives or used as a public score. See [account usage](account-usage.md).

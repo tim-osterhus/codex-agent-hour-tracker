@@ -14,11 +14,13 @@ The `--share` command emits a bounded aggregate designed for sharing. Sharing it
 
 ## Data boundaries
 
-The scanner reads local plain or Zstandard-compressed archive bytes and decodes only bounded timing and source metadata. It does not decode conversation, reasoning, or tool payloads. The CLI does not send session data over the network.
+The scanner reads local plain or Zstandard-compressed archive bytes and decodes only bounded timing and source metadata. It does not decode conversation, reasoning, or tool payloads. The archive scanner does not send session data over the network. The separate `account-usage` command queries OpenAI account services through the installed Codex app-server using an existing ChatGPT-backed login; it uploads no exports.
 
 Private merge exports retain exact start timestamps, durations, source classes, and persistent hashed turn identifiers. Hashes permit correlation and do not anonymize activity. Keep these exports private. Full text and CSV reports also reveal activity patterns.
 
 Public share exports use a separate allowlist of aggregate fields. The website validates that schema, rejects private archives, and renders images locally. Importing a score does not submit it. Downloaded cards still disclose their displayed aggregates and optional human-hours assumptions.
+
+Account usage exports contain token metrics and daily activity. They use fingerprinted identity by default; fingerprints permit correlation and are not anonymization. Plaintext identity requires `--include-identity`. Default output is under ignored `reports/account-usage/`; other destinations require your own Git exclusions. Files are created exclusively as mode 0600 inside a mode 0700 output directory on POSIX. Direct Windows file output fails closed because private ACLs are not verified. `--stdout` is an explicit private-data disclosure to the caller; capture it securely. Account exports never enter the share schema or scoreboard. See [account export details](docs/account-usage.md).
 
 ## Optional community scoreboard
 

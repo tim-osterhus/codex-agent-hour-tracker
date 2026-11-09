@@ -33,6 +33,13 @@ Use the installed `agent-hours` CLI, or `uvx codex-agent-hour-tracker`. The pack
 - `--human-hours TOTAL` uses reported period hours; `--human-hours-per-week WEEKLY` uses an explicitly labeled prorated estimate.
 - Never invent human hours from prompt timestamps or drop low-use calendar days to improve a score.
 
+## Private account usage
+
+- Use `agent-hours account-usage --label NAME` only when account token summaries or daily history are requested. This queries the existing ChatGPT-backed Codex login; API-key-only auth is unsupported. Never read credentials.
+- Keep outputs private under ignored `reports/account-usage/` by default. Identity is fingerprinted. Use `--include-identity` only for explicitly requested plaintext identity and `--stdout` only for explicitly authorized secure capture. Never print daily history into a public result.
+- Preserve nulls and sparse history. Bucket timezone, retention, and lifetime completeness are unknown. Do not infer lifetime coverage or treat missing days as zero.
+- Account usage must never enter `--share`, website payloads, share cards, or the public scoreboard.
+
 ## Sharing
 
 - `--share` produces the canonical aggregate text card. `--share --format json` produces sanitized public score JSON for the website.

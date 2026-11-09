@@ -34,6 +34,16 @@ codex-agent-hour-tracker --share
 
 Both command names invoke the same tool. Upgrade an existing uv installation with `uv tool upgrade codex-agent-hour-tracker`.
 
+## Private ChatGPT account usage
+
+```bash
+agent-hours account-usage --label laptop
+```
+
+Uses your existing ChatGPT-backed Codex login to request service-reported token summaries and daily buckets. API-key-only login is unsupported. It writes private JSON and daily CSV to `reports/account-usage/`, ignored in this repository, with no metrics printed. Choose `--output-dir` for another private location. Identity is fingerprinted by default; `--include-identity` explicitly includes plaintext identity. These exports must never enter share cards or the public scoreboard.
+
+This is separate from archive-derived runtime. Daily history can be sparse; timezone, retention, and lifetime completeness are unknown. See [private account exports](docs/account-usage.md) for permissions, Windows, secure capture, and null values.
+
 ## Calculate Agent Leverage
 
 Supply your human hours for the entire report period:
