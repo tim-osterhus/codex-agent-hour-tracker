@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -142,6 +143,7 @@ class AccountUsageExporterTests(unittest.TestCase):
             finally:
                 client.close()
 
+    @unittest.skipIf(os.name == 'nt', 'Private file output requires POSIX permissions')
     def test_write_private_outputs_and_no_overwrite(self):
         data = self.read()
         output = self.root / 'private'
@@ -156,6 +158,7 @@ class AccountUsageExporterTests(unittest.TestCase):
             exporter.write_export(data, output, 'account-1')
         self.assertEqual(paths[0].read_bytes(), original)
 
+    @unittest.skipIf(os.name == 'nt', 'Private file output requires POSIX permissions')
     def test_second_collision_rolls_back_only_new_file(self):
         output = self.root / 'out'
         output.mkdir()
@@ -165,6 +168,7 @@ class AccountUsageExporterTests(unittest.TestCase):
         self.assertFalse((output / 'collision.json').exists())
         self.assertEqual((output / 'collision.daily.csv').read_text(), 'existing')
 
+    @unittest.skipIf(os.name == 'nt', 'Private file output requires POSIX permissions')
     def test_main_existing_output_does_not_launch(self):
         output = self.root / 'out'
         output.mkdir()
@@ -204,6 +208,29 @@ class AccountUsageExporterTests(unittest.TestCase):
             with self.assertRaisesRegex(exporter.ExportError, 'ACLs are not verified'):
                 exporter.write_export({}, destination, 'account')
         self.assertFalse(destination.exists())
+
+    def test_windows_cli_file_output_fails_closed_before_launch(self):
+        destination = self.root / 'private-output'
+        destination.mkdir()
+        existing = destination / 'account.json'
+        existing.write_text('existing')
+        for options in ([], ['--output-dir', str(destination)]):
+            with self.subTest(options=options):
+                output, error = io.StringIO(), io.StringIO()
+                # Replace this module's OS reference without changing pathlib's
+                # host-platform behavior while parsing the output directory.
+                with mock.patch.object(exporter, 'os', SimpleNamespace(name='nt')), \
+                        mock.patch.object(exporter, 'resolve_codex') as resolve, \
+                        mock.patch.object(exporter, 'write_export') as write, \
+                        contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+                    code = exporter.main(['--label', 'account', *options])
+                self.assertEqual(code, 1)
+                self.assertEqual(output.getvalue(), '')
+                self.assertIn('Private Windows file ACLs are not verified', error.getvalue())
+                resolve.assert_not_called()
+                write.assert_not_called()
+                self.assertEqual(existing.read_text(), 'existing')
+                self.assertFalse((destination / 'account.daily.csv').exists())
 
     def test_stdout_is_allowlisted_json_without_status_text(self):
         output = io.StringIO()
@@ -264,6 +291,7 @@ class AccountUsageExporterTests(unittest.TestCase):
             self.assertEqual(unsafe.returncode, 2)
             self.assertEqual(unsafe.stdout, '')
 
+    @unittest.skipIf(os.name == 'nt', 'Private file output requires POSIX permissions')
     def test_file_failure_never_falls_back_to_stdout(self):
         output = io.StringIO()
         stderr = io.StringIO()
