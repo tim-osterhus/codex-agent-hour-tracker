@@ -40,6 +40,12 @@ class _ReportInput:
 def main(argv: list[str] | None = None) -> int:
     """Run the agent-hour tracker CLI and return a process exit code."""
 
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "account-usage":
+        from .account_usage import main as account_usage_main
+
+        return account_usage_main(argv[1:])
+
     parser = _build_parser()
     try:
         arguments = parser.parse_args(argv)
@@ -137,6 +143,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-hours",
         description="Report cumulative Codex agent-hours from local session metadata.",
+        epilog="Private account tokens: agent-hours account-usage --help",
     )
     parser.add_argument(
         "--sessions-dir",
