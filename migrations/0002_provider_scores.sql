@@ -19,4 +19,3 @@ CREATE INDEX IF NOT EXISTS community_provider_scores_board_idx
   ON community_provider_scores(provider, scope, agent_hours_per_day DESC, login ASC);
 CREATE INDEX IF NOT EXISTS community_provider_scores_window_idx
   ON community_provider_scores(provider, scope, eligible_until);
-
