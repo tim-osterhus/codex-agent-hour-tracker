@@ -56,6 +56,7 @@ before(async () => {
   });
   db = await mf.getD1Database("COMMUNITY_DB");
   await db.exec((await readFile(new URL("../migrations/0001_community.sql", import.meta.url), "utf8")).replaceAll("\n", " "));
+  await db.exec((await readFile(new URL("../migrations/0002_provider_scores.sql", import.meta.url), "utf8")).replaceAll("\n", " "));
 });
 
 after(async () => { await mf?.dispose(); });

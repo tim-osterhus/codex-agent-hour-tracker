@@ -7,7 +7,7 @@ import { routeCommunity } from "../community/api.js";
 
 const NOW = Date.parse("2026-09-09T12:00:00.000Z");
 const USER_ID = 42;
-const schema = (await readFile(new URL("../migrations/0001_community.sql", import.meta.url), "utf8")).replaceAll("\n", " ");
+const schema = (await Promise.all(["0001_community.sql", "0002_provider_scores.sql"].map((file) => readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8")))).join("\n").replaceAll("\n", " ");
 let mf;
 let db;
 let env;
@@ -257,4 +257,47 @@ test("an unconfigured session read is anonymous and does not prune or mutate the
   });
   const after = Number((await db.prepare("SELECT COUNT(*) AS count FROM sessions").first()).count);
   assert.equal(after, before);
+});
+
+test("provider API separates boards and own deletion while preserving legacy defaults", async () => {
+  for (const [i, provider] of ["codex", "claude", "all"].entries()) {
+    const score = provider === "codex" ? validScore() : { ...validScore(), schema_version: 2, provider };
+    const response = await call(request("/scores", { method: "POST", body: { score, turnstile_token: "token", request_id: `00000000-0000-4000-8000-0000000009${i}1` }, ...sessionHeaders() }));
+    assert.equal(response.status, 200);
+    const board = await call(request(`/scores?scope=interactive-only&provider=${provider}`));
+    assert.equal(board.status, 200);
+    assert.equal((await board.json()).scores[0].score.provider ?? "codex", provider);
+  }
+  assert.equal((await (await call(request("/session", sessionHeaders()))).json()).scores.length, 3);
+  const removed = await call(request("/scores", { method: "DELETE", body: { scope: "interactive-only", provider: "claude" }, ...sessionHeaders() }));
+  assert.equal(removed.status, 200);
+  const current = await (await call(request("/session", sessionHeaders()))).json();
+  assert.equal(current.scores.length, 2);
+  assert.equal(current.quota.used, 3);
+  assert.equal((await (await call(request("/scores?scope=interactive-only"))).json()).scores.length, 1);
+});
+
+test("provider API rejects invalid and duplicate provider selectors", async () => {
+  for (const query of ["provider=other", "provider=", "provider=claude&provider=all", "unexpected=claude"]) {
+    assert.equal((await call(request(`/scores?scope=interactive-only&${query}`))).status, 400);
+  }
+  for (const provider of [null, "other", [], {}]) {
+    assert.equal((await call(request("/scores", { method: "DELETE", body: { scope: "interactive-only", provider }, ...sessionHeaders() }))).status, 400);
+  }
+});
+
+test("request IDs cannot replay an accepted score onto another provider", async () => {
+  const body = { score: { ...validScore(), schema_version: 2, provider: "claude" }, turnstile_token: "token", request_id: "00000000-0000-4000-8000-000000000991" };
+  assert.equal((await call(request("/scores", { method: "POST", body, ...sessionHeaders() }))).status, 200);
+  let turnstileCalls = 0;
+  const conflict = await call(request("/scores", { method: "POST", body: { ...body, score: { ...body.score, provider: "all" } }, ...sessionHeaders() }), {
+    fetchImpl: async () => { turnstileCalls += 1; throw new Error("Unexpected verification"); },
+  });
+  assert.equal(conflict.status, 409);
+  assert.equal((await conflict.json()).error, "request_id_conflict");
+  assert.equal(turnstileCalls, 0);
+  const current = await (await call(request("/session", sessionHeaders()))).json();
+  assert.equal(current.scores.length, 1);
+  assert.equal(current.scores[0].score.provider, "claude");
+  assert.equal(current.quota.used, 1);
 });

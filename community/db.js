@@ -27,6 +27,13 @@ function normalizedScope(scope) {
   return scope;
 }
 
+function normalizedProvider(provider = "codex") {
+  if (provider !== "codex" && provider !== "claude" && provider !== "all") {
+    throw new DatabaseError();
+  }
+  return provider;
+}
+
 async function requestRow(db, requestId) {
   return db
     .prepare(
@@ -103,6 +110,7 @@ export async function recordAcceptedScore(
   }
   if (typeof requestId !== "string" || !requestId) throw new DatabaseError();
   const scope = normalizedScope(score?.scope);
+  const provider = normalizedProvider(score?.provider);
   const nowMs = assertNow(now);
   const digest = await scoreDigest(score);
   const existing = await requestRow(db, requestId);
@@ -134,9 +142,11 @@ export async function recordAcceptedScore(
         .bind(requestId, githubId, scope, digest, nowMs),
       db
         .prepare(
-          "INSERT INTO community_scores (github_id, scope, login, score_json, score_digest, window_end, window_timezone, eligible_until, agent_hours_per_day, updated_at, request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(github_id, scope) DO UPDATE SET login = excluded.login, score_json = excluded.score_json, score_digest = excluded.score_digest, window_end = excluded.window_end, window_timezone = excluded.window_timezone, eligible_until = excluded.eligible_until, agent_hours_per_day = excluded.agent_hours_per_day, updated_at = excluded.updated_at, request_id = excluded.request_id",
+          provider === "codex"
+            ? "INSERT INTO community_scores (github_id, scope, login, score_json, score_digest, window_end, window_timezone, eligible_until, agent_hours_per_day, updated_at, request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(github_id, scope) DO UPDATE SET login = excluded.login, score_json = excluded.score_json, score_digest = excluded.score_digest, window_end = excluded.window_end, window_timezone = excluded.window_timezone, eligible_until = excluded.eligible_until, agent_hours_per_day = excluded.agent_hours_per_day, updated_at = excluded.updated_at, request_id = excluded.request_id"
+            : "INSERT INTO community_provider_scores (github_id, scope, login, score_json, score_digest, window_end, window_timezone, eligible_until, agent_hours_per_day, updated_at, request_id, provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(github_id, scope, provider) DO UPDATE SET login = excluded.login, score_json = excluded.score_json, score_digest = excluded.score_digest, window_end = excluded.window_end, window_timezone = excluded.window_timezone, eligible_until = excluded.eligible_until, agent_hours_per_day = excluded.agent_hours_per_day, updated_at = excluded.updated_at, request_id = excluded.request_id",
         )
-        .bind(
+        .bind(...[
           githubId,
           scope,
           login,
@@ -148,7 +158,8 @@ export async function recordAcceptedScore(
           score.metrics.agent_hours_per_day,
           updatedAt,
           requestId,
-        ),
+          ...(provider === "codex" ? [] : [provider]),
+        ]),
     ]);
     if (!Array.isArray(results) || !results[2]) throw new DatabaseError();
   } catch (error) {
@@ -167,20 +178,23 @@ export async function recordAcceptedScore(
   };
 }
 
-export async function deleteOwnScore(db, { githubId, scope }) {
+export async function deleteOwnScore(db, { githubId, scope, provider = "codex" }) {
   normalizedScope(scope);
+  normalizedProvider(provider);
   await db
-    .prepare("DELETE FROM community_scores WHERE github_id = ? AND scope = ?")
-    .bind(githubId, scope)
+    .prepare(provider === "codex"
+      ? "DELETE FROM community_scores WHERE github_id = ? AND scope = ?"
+      : "DELETE FROM community_provider_scores WHERE github_id = ? AND scope = ? AND provider = ?")
+    .bind(...[githubId, scope, ...(provider === "codex" ? [] : [provider])])
     .run();
 }
 
 export async function getUserScores(db, githubId) {
   const rows = await db
     .prepare(
-      "SELECT login, score_json, updated_at FROM community_scores WHERE github_id = ? ORDER BY scope ASC",
+      "SELECT login, score_json, updated_at, scope, 'codex' AS provider FROM community_scores WHERE github_id = ? UNION ALL SELECT login, score_json, updated_at, scope, provider FROM community_provider_scores WHERE github_id = ? ORDER BY scope ASC, provider ASC",
     )
-    .bind(githubId)
+    .bind(githubId, githubId)
     .all();
   return (rows.results ?? []).flatMap((row) => {
     try {
@@ -191,15 +205,18 @@ export async function getUserScores(db, githubId) {
   });
 }
 
-export async function getPublicScores(db, scope, { now, limit = MAX_BOARD_ROWS } = {}) {
+export async function getPublicScores(db, scope, { now, limit = MAX_BOARD_ROWS, provider = "codex" } = {}) {
   normalizedScope(scope);
+  normalizedProvider(provider);
   const nowMs = assertNow(now);
   const boundedLimit = Math.min(MAX_BOARD_ROWS, Math.max(1, Number(limit) || MAX_BOARD_ROWS));
   const rows = await db
     .prepare(
-      "SELECT login, score_json, updated_at FROM community_scores WHERE scope = ? AND eligible_until > ? ORDER BY agent_hours_per_day DESC, login ASC LIMIT ?",
+      provider === "codex"
+        ? "SELECT login, score_json, updated_at FROM community_scores WHERE scope = ? AND eligible_until > ? ORDER BY agent_hours_per_day DESC, login ASC LIMIT ?"
+        : "SELECT login, score_json, updated_at FROM community_provider_scores WHERE scope = ? AND eligible_until > ? AND provider = ? ORDER BY agent_hours_per_day DESC, login ASC LIMIT ?",
     )
-    .bind(scope, nowMs, boundedLimit)
+    .bind(...[scope, nowMs, ...(provider === "codex" ? [] : [provider]), boundedLimit])
     .all();
   return (rows.results ?? []).flatMap((row) => {
     try {

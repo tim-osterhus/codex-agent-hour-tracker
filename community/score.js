@@ -3,6 +3,7 @@ const MAX_SCORE_BYTES = 32_768;
 const MAX_HOURS_PER_DAY = 1_000_000_000;
 const MAX_TOTAL_HOURS = 30_000_000_000;
 const MAX_TURNS = 100_000_000;
+const PROVIDERS = new Set(["codex", "claude", "all"]);
 const SCOPES = new Set(["interactive-only", "including-exec"]);
 
 const TOP_LEVEL_KEYS = [
@@ -168,10 +169,11 @@ export function parseScore(input, { now = Date.now() } = {}) {
     invalid("Public score JSON must be 32 KB or smaller.");
   }
 
-  exactKeys(score, TOP_LEVEL_KEYS);
+  exactKeys(score, score.schema_version === 2 ? [...TOP_LEVEL_KEYS, "provider"] : TOP_LEVEL_KEYS);
   if (
     score.schema !== "agent-hours-score" ||
-    score.schema_version !== 1 ||
+    (score.schema_version !== 1 && score.schema_version !== 2) ||
+    (score.schema_version === 2 && !PROVIDERS.has(score.provider)) ||
     typeof score.tracker_version !== "string" ||
     !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(score.tracker_version) ||
     score.methodology_version !== "1" ||
