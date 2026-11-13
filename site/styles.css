@@ -72,6 +72,7 @@ button.primary:hover,
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
+select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--coral);
@@ -956,4 +957,11 @@ td:not(:first-child) {
     grid-template-columns: 1fr;
     gap: 18px;
   }
+}
+
+/* Provider controls reuse the score studio's existing controls. */
+.provider-choices { display: flex; flex-wrap: wrap; margin-bottom: 16px; }
+#command-provider {
+  max-width: 100%; margin-bottom: 16px; padding: 10px;
+  background: #202320; color: inherit; border: 1px solid #62685e; font: inherit;
 }

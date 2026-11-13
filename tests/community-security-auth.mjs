@@ -10,10 +10,7 @@ import { sha256 } from "../community/crypto.js";
 const NOW = Date.parse("2026-09-09T12:00:00.000Z");
 const ORIGIN = "https://agenthours.dev";
 const IP = "192.0.2.44";
-const schema = await readFile(
-  new URL("../migrations/0001_community.sql", import.meta.url),
-  "utf8",
-).then((value) => value.replaceAll("\n", " "));
+const schema = (await Promise.all(["0001_community.sql", "0002_provider_scores.sql"].map((file) => readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8")))).join("\n").replaceAll("\n", " ");
 
 let mf;
 let db;

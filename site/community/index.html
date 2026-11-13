@@ -11,8 +11,8 @@
     <meta name="theme-color" content="#202320" />
     <link rel="canonical" href="https://agenthours.dev/community/" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=20260910" />
-    <link rel="stylesheet" href="/styles.css?v=community-1" />
-    <script type="module" src="/community.js?v=community-2"></script>
+    <link rel="stylesheet" href="/styles.css?v=providers-030" />
+    <script type="module" src="/community.js?v=providers-030"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -37,6 +37,11 @@
       <section class="section board" aria-labelledby="board-title">
         <h2 id="board-title">Recent scores</h2>
         <p>Up to 50 scores per list, sorted by agent hours per day.</p>
+        <div class="segmented provider-choices" role="group" aria-label="Score provider">
+          <button type="button" id="board-codex" aria-pressed="true">Codex</button>
+          <button type="button" id="board-claude" aria-pressed="false">Claude</button>
+          <button type="button" id="board-all" aria-pressed="false">Combined</button>
+        </div>
         <div class="segmented" role="group" aria-label="Score sessions">
           <button type="button" id="interactive-only" aria-pressed="true">
             Interactive only</button
@@ -53,6 +58,7 @@
             <thead>
               <tr>
                 <th scope="col">GitHub account</th>
+                <th scope="col">Provider</th>
                 <th scope="col">Hours / day</th>
                 <th scope="col">30-day total</th>
                 <th scope="col">Window ends</th>
@@ -145,8 +151,8 @@
           </div>
         </div>
         <p class="fine">
-          You can post 5 times in any rolling 30 days, across both lists. A new
-          post replaces your score in that list. Deleting a score does not
+          You can post 5 times in any rolling 30 days, across all providers and session lists. A new
+          post replaces your score for that provider and session scope. Deleting a score does not
           return a post slot. We keep private post timestamps for the limit,
           even after deletion, until that rolling window expires.
         </p>

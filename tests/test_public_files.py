@@ -208,7 +208,7 @@ class PublicFilesTests(unittest.TestCase):
         with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
             metadata = tomllib.load(handle)
         self.assertEqual(metadata["project"]["version"], __version__)
-        self.assertEqual(__version__, "0.2.2")
+        self.assertEqual(__version__, "0.3.0")
         for alias in ("agent-hours", "codex-agent-hour-tracker"):
             self.assertEqual(metadata["project"]["scripts"][alias], "agent_hour_tracker.cli:main")
         self.assertIn("/CHANGELOG.md", metadata["tool"]["hatch"]["build"]["targets"]["sdist"]["include"])
@@ -239,7 +239,7 @@ class PublicSiteTests(unittest.TestCase):
         self.assertEqual(len(self.parser.tags_named("main")), 1)
         self.assertTrue(self.parser.tags_named("header"))
         self.assertTrue(self.parser.tags_named("footer"))
-        self.assertIn("uvx codex-agent-hour-tracker --share", self.index)
+        self.assertIn("uvx codex-agent-hour-tracker --provider codex --share --format json", self.index)
         self.assertTrue(self.parser.tags_named("button"))
         self.assertTrue((SITE_ROOT / "benchmarks/index.html").is_file())
 

@@ -97,7 +97,7 @@ class ArchiveTests(unittest.TestCase):
             archive = collect_archive([directory], label="local sample")
 
         self.assertEqual(archive["schema"], "agent-hours-archive")
-        self.assertEqual(archive["schema_version"], 1)
+        self.assertEqual(archive["schema_version"], 2)
         self.assertEqual(archive["methodology_version"], "1")
         self.assertEqual(archive["label"], "local sample")
         self.assertEqual(archive["diagnostics"]["files_scanned"], 2)

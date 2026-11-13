@@ -147,7 +147,7 @@ async function boundedRequestText(request, maxBytes = MAX_BODY_BYTES) {
   }
 }
 
-async function readJsonBody(request, expectedKeys) {
+async function readJsonBody(request, expectedKeys, optionalKeys = []) {
   const contentType = request.headers.get("Content-Type") ?? "";
   if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
     throw error("request_invalid", 400, "The request must use JSON.");
@@ -163,7 +163,7 @@ async function readJsonBody(request, expectedKeys) {
     body === null ||
     typeof body !== "object" ||
     Array.isArray(body) ||
-    Object.keys(body).length !== expectedKeys.length ||
+    Object.keys(body).some((key) => !expectedKeys.includes(key) && !optionalKeys.includes(key)) ||
     expectedKeys.some((key) => !Object.hasOwn(body, key))
   ) {
     throw error("request_invalid", 400, "The request fields are invalid.");
@@ -313,14 +313,15 @@ async function postScore(request, env, { now, fetchImpl }) {
 
 async function deleteScore(request, env, { now }) {
   const session = await requireMutationSession(request, env, now);
-  const body = await readJsonBody(request, ["scope"]);
+  const body = await readJsonBody(request, ["scope"], ["provider"]);
+  const provider = providerValue(body.provider);
   if (body.scope !== "interactive-only" && body.scope !== "including-exec") {
     throw error("request_invalid", 400, "The score scope is invalid.");
   }
   if (!(await consumeWriteRateLimit(dbRequired(env), env, request, now))) {
     throw error("rate_limited", 429, "Too many community requests. Try again shortly.");
   }
-  await deleteOwnScore(dbRequired(env), { githubId: session.githubId, scope: body.scope });
+  await deleteOwnScore(dbRequired(env), { githubId: session.githubId, scope: body.scope, provider });
   return responseJson({ ok: true });
 }
 
@@ -353,16 +354,24 @@ async function session(request, env, now) {
   });
 }
 
+function providerValue(value = "codex") {
+  if (value !== "codex" && value !== "claude" && value !== "all") {
+    throw error("request_invalid", 400, "The score provider is invalid.");
+  }
+  return value;
+}
+
 async function board(url, env, now) {
   const db = dbRequired(env);
-  if (url.searchParams.getAll("scope").length !== 1 || [...url.searchParams.keys()].some((key) => key !== "scope")) {
+  if (url.searchParams.getAll("scope").length !== 1 || url.searchParams.getAll("provider").length > 1 || [...url.searchParams.keys()].some((key) => key !== "scope" && key !== "provider")) {
     throw error("request_invalid", 400, "A score scope is required.");
   }
   const scope = url.searchParams.get("scope");
   if (scope !== "interactive-only" && scope !== "including-exec") {
     throw error("request_invalid", 400, "The score scope is invalid.");
   }
-  return responseJson({ scores: await getPublicScores(db, scope, { now, limit: 50 }) }, 200, { cache: "public, max-age=60" });
+  const provider = providerValue(url.searchParams.has("provider") ? url.searchParams.get("provider") : undefined);
+  return responseJson({ scores: await getPublicScores(db, scope, { now, limit: 50, provider }) }, 200, { cache: "public, max-age=60" });
 }
 
 const AUTH_MESSAGES = Object.freeze({

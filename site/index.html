@@ -6,7 +6,7 @@
     <title>Agent Hours — See your agents’ time.</title>
     <meta
       name="description"
-      content="Count your Codex agent hours on your machine. Make a score card, or choose to share a score with the community."
+      content="Count your Codex and Claude agent hours on your machine. Make a score card, or choose to share a score with the community."
     />
     <meta name="theme-color" content="#202320" />
     <link rel="canonical" href="https://agenthours.dev/" />
@@ -29,8 +29,8 @@
       content="Agent Hours card with labeled example values"
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="stylesheet" href="/styles.css?v=community-1" />
-    <script type="module" src="/app.js?v=community-1"></script>
+    <link rel="stylesheet" href="/styles.css?v=providers-030" />
+    <script type="module" src="/app.js?v=providers-030"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -38,7 +38,7 @@
       <a class="wordmark" href="/"
         ><span class="mark" aria-hidden="true">≋</span> agent hours<span
           class="version"
-          >/ 0.2</span
+          >/ 0.3</span
         ></a
       ><a
         class="text-link"
@@ -53,7 +53,7 @@
           <div>
             <h3>What counts?</h3>
             <p>
-              We add up completed Codex turns over the last 30 full days,
+              We add up completed Codex or Claude turns over the last 30 full days,
               ending yesterday. If
               three agents each run for an hour, that counts as three agent
               hours. Days with no use still count in the average.
@@ -62,9 +62,11 @@
           <div>
             <h3>Which sessions?</h3>
             <p>
-              The default counts interactive sessions. Add
-              <code>--include-exec</code> to count batch sessions too. These
-              scores have their own community list.
+              Codex defaults to interactive sessions. Add
+              <code>--include-exec</code> to count Codex batch sessions too. Each
+              provider has separate community lists for these scopes. Claude
+              transcript origin remains unknown, so its runtime is included
+              under either scope.
             </p>
           </div>
           <div>
@@ -78,9 +80,12 @@
           <div>
             <h3>What about gaps and missing logs?</h3>
             <p>
-              Each gap between recorded events counts for up to 30 minutes.
-              Sparse logs use a short fallback estimate. Unfinished turns do
-              not count. Missing logs can lower your score.
+              Codex caps each recorded event gap at 30 minutes and uses fallback
+              estimates when event timing is unavailable. Unfinished Codex turns
+              do not count. Claude uses native main-session duration records and
+              completed foreground-agent duration summaries, without the Codex
+              gap cap. Missing Claude timing and untimed async launches contribute
+              no runtime. Missing logs can lower your score.
             </p>
           </div>
           <div>
@@ -93,7 +98,7 @@
           </div>
         </div>
         <p>
-          <a href="/benchmarks/">Published benchmarks ↗</a> ·
+          <a href="/benchmarks/">Historical Codex benchmarks ↗</a> ·
           <a
             href="https://github.com/tim-osterhus/codex-agent-hour-tracker/blob/main/docs/methodology.md"
             >Full method ↗</a
@@ -107,7 +112,7 @@
       </details>
       <section class="home-intro" aria-labelledby="title">
         <p class="eyebrow">
-          <span class="signal"></span> YOUR CODEX HOURS, COUNTED LOCALLY
+          <span class="signal"></span> YOUR AGENT HOURS, COUNTED LOCALLY
         </p>
         <h1 id="title">
           Your day has 24 hours.<br /><em>Your agents can have more.</em>
@@ -126,9 +131,15 @@
       </section>
       <section class="run" aria-labelledby="run-title">
         <h2 id="run-title" class="step-title">1. Run this on your machine</h2>
+        <label for="command-provider">Provider</label>
+        <select id="command-provider">
+          <option value="codex">Codex</option>
+          <option value="claude">Claude</option>
+          <option value="all">Combined (Codex + Claude)</option>
+        </select>
         <div class="command">
           <code id="command"
-            >uvx codex-agent-hour-tracker --share --format json</code
+            >uvx codex-agent-hour-tracker --provider codex --share --format json</code
           ><button id="copy-command" type="button">Copy ↗</button>
         </div>
         <p class="fine">
@@ -136,7 +147,7 @@
           <a href="https://docs.astral.sh/uv/getting-started/installation/"
             >uv</a
           >
-          and local Codex sessions. The command reads timing data, not your
+          and local sessions for your selected provider. The command reads timing data, not your
           chats.
         </p>
         <p id="copy-status" class="status" role="status"></p>
@@ -208,6 +219,11 @@
                 Try the math. This is an example, not a measured score. Examples
                 cannot be posted.
               </p>
+              <div class="segmented provider-choices" role="group" aria-label="Example provider">
+                <button type="button" id="preview-codex" aria-pressed="true">Codex</button>
+                <button type="button" id="preview-claude" aria-pressed="false">Claude</button>
+                <button type="button" id="preview-all" aria-pressed="false">Combined</button>
+              </div>
               <div class="calculator">
                 <label for="agent-count">Number of agents</label
                 ><input

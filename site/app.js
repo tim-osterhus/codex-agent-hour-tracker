@@ -1,8 +1,9 @@
-import { LocalScore, renderCard, number } from "./score.mjs?v=community-1";
+import { LocalScore, renderCard, number, providerLabel } from "./score.mjs?v=providers-030";
 const $ = (id) => document.getElementById(id);
 const state = new LocalScore();
 let mode = "upload",
   format = "landscape",
+  previewProvider = "codex",
   revision = 0;
 const uri = (svg) =>
   "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
@@ -17,10 +18,10 @@ function render() {
   const score = state.score;
   $("export-preview").src = uri(renderCard(score, format, !state.shareable));
   $("export-preview").alt =
-    `${state.shareable ? "Self-reported, unverified score" : "Fabricated example"}: ${number(score.metrics.agent_hours_per_day)} agent hours per day; ${number(score.metrics.total_agent_hours)} total; ${score.window.start} through ${score.window.end}; ${score.scope}; ${score.window.timezone}.`;
+    `${state.shareable ? "Self-reported, unverified score" : "Fabricated example"} · ${providerLabel(score)}: ${number(score.metrics.agent_hours_per_day)} agent hours per day; ${number(score.metrics.total_agent_hours)} total; ${score.window.start} through ${score.window.end}; ${score.scope}; ${score.window.timezone}.`;
   $("preview-state").textContent = state.shareable
-    ? "SELF-REPORTED · UNVERIFIED"
-    : "EXAMPLE · NOT MEASURED";
+    ? `${providerLabel(score)} · SELF-REPORTED · UNVERIFIED`
+    : `${providerLabel(score)} · EXAMPLE · NOT MEASURED`;
   $("download-status").textContent =
     `${format === "square" ? "1080 × 1080" : "1200 × 630"} · Saved on your machine.`;
   for (const choice of ["square", "landscape"])
@@ -41,6 +42,7 @@ function preview() {
       agents,
       hours,
       $("human").value.trim() ? Number($("human").value) : null,
+      previewProvider,
     );
     $("preview-math").textContent =
       `${number(agents)} agents × ${number(hours)} hours = ${number(state.score.metrics.agent_hours_per_day)} agent hours / day.${state.score.leverage ? ` ${number(state.score.leverage.ratio)} agent hours for each of your hours.` : ""}`;
@@ -80,6 +82,17 @@ for (const name of ["upload", "preview"]) {
     $(next + "-tab").focus();
   });
 }
+$("command-provider").addEventListener("change", () => {
+  $("command").textContent = `uvx codex-agent-hour-tracker --provider ${$("command-provider").value} --share --format json`;
+  $("copy-status").textContent = "";
+});
+for (const provider of ["codex", "claude", "all"])
+  $("preview-" + provider).addEventListener("click", () => {
+    previewProvider = provider;
+    for (const choice of ["codex", "claude", "all"])
+      $("preview-" + choice).setAttribute("aria-pressed", String(choice === provider));
+    preview();
+  });
 $("copy-command").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText($("command").textContent);

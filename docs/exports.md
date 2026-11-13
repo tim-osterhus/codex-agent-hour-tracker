@@ -2,18 +2,23 @@
 
 Agent Hours has two JSON formats. They serve different purposes and are not interchangeable.
 
-## Public score: `agent-hours-score`, schema version 1
+## Public score: `agent-hours-score`, schema versions 1 and 2
 
 Create with `agent-hours --share --format json`. The CLI fixes the window to 30 completed calendar days ending yesterday.
 
 | Field | Contents |
 | --- | --- |
 | `schema`, `schema_version` | Format identity and version |
+| `provider` | Required in version 2: `codex`, `claude`, or `all`. Absent in version 1 (Codex) |
 | `tracker_version`, `methodology_version` | Software and timing-rule versions |
 | `window` | `start`, `end`, `days`, and IANA `timezone` |
 | `scope` | `interactive-only` or `including-exec` |
 | `metrics` | `agent_hours_per_day`, `total_agent_hours`, `peak_day_agent_hours`, `completed_turns`, `active_days` |
 | `leverage` | `null`, or `ratio`, `human_hours`, `basis`, and `human_hours_per_week` |
+
+Codex exports keep version 1 for compatibility. `agent-hours --provider claude --share --format json` and `agent-hours --provider all --share --format json` write version 2. Readers also accept version 2 with `provider: "codex"`. Combined scores contain one aggregate across both providers, with no provider subtotals. Both versions reject unexpected fields.
+
+The `scope` enum controls Codex source selection: `interactive-only` excludes Codex exec/batch sources, while `including-exec` includes them. Claude scores include native recorded turns with unverified main-session origin under either scope. They can include SDK or headless activity. A combined score adds these Claude observations to the selected Codex sources. Neither Claude nor combined scores assert that all activity was human initiated.
 
 Leverage basis is `reported-period` or `estimated-weekly`. Reported-period leverage has a null weekly-hours field. Numeric values are finite and nonnegative. Supplied human hours are positive.
 
@@ -21,19 +26,25 @@ The schema excludes daily rows, machine labels, account details, paths, identifi
 
 Pasting a score does not submit it to a server. PNG/SVG generation uses the same local renderer as the card preview. Exported images disclose the fields shown on the preview.
 
-Community posting is a separate, confirmed action. The server accepts this schema with `leverage: null` and links it to the signed-in GitHub login. It checks the date window and numeric bounds, not whether the claimed runtime happened. Interactive-only and exec-inclusive scores have separate boards. See [community rules](community.md).
+Community posting is a separate, confirmed action. The server accepts this schema with `leverage: null` and links it to the signed-in GitHub login. It checks the date window and numeric bounds, not whether the claimed runtime happened. Provider and scope selections have separate boards. See [community rules](community.md).
 
-## Private archive: `agent-hours-archive`, schema version 1
+## Private archive: `agent-hours-archive`, schema version 2
 
 Create with `agent-hours --export reports/machine.agent-hours-private.json --label machine`. Export collects available timing observations across the selected directories, including exec/batch observations. It is not a date-bounded public score.
 
 Scans and exports accept both `.jsonl` and `.jsonl.zst` rollouts. Merge exports created by version 0.2.1 with Agent Hours 0.2.1 or newer. Version 0.2.0 rejects the new `decompression_errors` diagnostic field. Version 0.2.1 still reads older private exports.
 
-The archive contains a methodology version, optional user label, compact observations, and diagnostics. Each observation includes a deterministic hash of the typed turn identifier, start timestamp, duration, timing usability, and source class. It contains no conversation payloads or raw turn identifiers.
+The archive contains a methodology version, optional user label, compact observations, and diagnostics. Each version 2 observation includes `provider` (`codex` or `claude`), a deterministic hash of the typed turn identifier, start timestamp, duration, timing usability, and source class. It contains no conversation payloads or raw turn identifiers.
 
 Retaining the best observation per source class lets a later merge apply source selection before deduplication. It also preserves the independent human-root sample. The merge rejects incompatible versions and malformed data rather than silently reinterpreting them.
 
 Precise timestamps and persistent hashes reveal activity patterns and permit correlation between exports. Hashing does not make this public-safe. Transfer archives only between machines or people you intend to grant this access. Store them under ignored `reports/` paths. Never paste a private archive into the public share studio.
+
+Version 0.3.0 writes schema version 2 and reads version 1 as Codex. Older versions cannot read version 2. Existing Codex hashes remain unchanged. Merge deduplication uses the provider and hash, so a Codex identifier cannot collide with a Claude identifier.
+
+Use `--provider all` to collect or report both providers. Provider selection also filters imported archives. Public score schema version 1 remains Codex-only. Claude and combined `--share` selections use public schema version 2.
+
+Claude observations require main native duration records or completed foreground-agent summaries. Missing timing contributes no runtime. Child-native timers are excluded to prevent duplicate delegated runtime. Diagnostics report coverage gaps and unverified main-session origin. These labels disclose no paths or transcript content.
 
 ## Reproduction
 

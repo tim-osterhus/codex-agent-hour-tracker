@@ -12,7 +12,7 @@ import {
 
 const NOW = Date.parse("2026-09-09T12:00:00.000Z");
 const USER_ID = 42;
-const schema = (await readFile(new URL("../migrations/0001_community.sql", import.meta.url), "utf8")).replaceAll("\n", " ");
+const schema = (await Promise.all(["0001_community.sql", "0002_provider_scores.sql"].map((file) => readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8")))).join("\n").replaceAll("\n", " ");
 let mf;
 let db;
 
@@ -209,4 +209,52 @@ test("board eligibility handles a declared midnight skipped by a DST transition"
   const expires = Date.parse("2026-09-06T04:00:00.000Z");
   assert.equal((await getPublicScores(db, "interactive-only", { now: expires - 1 })).length, 1);
   assert.equal((await getPublicScores(db, "interactive-only", { now: expires })).length, 0);
+});
+
+const providerScore = (provider, hours = 48) => ({ ...score("interactive-only", hours), schema_version: 2, provider });
+
+test("provider boards, replacement and deletion isolate accounts, scopes and providers", async () => {
+  await add("provider-codex", score("interactive-only", 103.02));
+  await add("provider-claude", providerScore("claude", 20));
+  await add("provider-all", providerScore("all", 123.02));
+  await add("provider-claude-replace", providerScore("claude", 21));
+  await add("provider-bob", providerScore("claude", 25), NOW, 77, "bob");
+  assert.equal((await getUserScores(db, USER_ID)).length, 3);
+  for (const [provider, hours] of [["codex", 103.02], ["claude", 25], ["all", 123.02]]) {
+    const board = await getPublicScores(db, "interactive-only", { now: NOW, provider });
+    assert.equal(board[0].score.metrics.agent_hours_per_day, hours);
+    assert.ok(board.every(({ score }) => (score.provider ?? "codex") === provider));
+  }
+  await deleteOwnScore(db, { githubId: USER_ID, scope: "interactive-only", provider: "claude" });
+  assert.equal((await getUserScores(db, USER_ID)).length, 2);
+  assert.deepEqual((await getPublicScores(db, "interactive-only", { now: NOW, provider: "claude" })).map(({ login }) => login), ["bob"]);
+  assert.equal((await getPublicScores(db, "interactive-only", { now: NOW }))[0].score.metrics.agent_hours_per_day, 103.02);
+  assert.equal((await quotaForUser(db, USER_ID, NOW)).used, 4);
+});
+
+test("provider writes share the existing atomic five-post quota and cannot cross-replay", async () => {
+  const first = providerScore("claude");
+  assert.equal((await add("same-provider-request", first)).status, "accepted");
+  assert.equal((await add("same-provider-request", first)).status, "replayed");
+  assert.equal((await add("same-provider-request", providerScore("all"))).status, "request_conflict");
+  const results = await Promise.all(["codex", "claude", "all", "codex", "all"].map((provider, i) => add(`mixed-provider-${i}`, providerScore(provider))));
+  assert.equal(results.filter(({ status }) => status === "accepted").length, 4);
+  assert.equal(results.filter(({ status }) => status === "quota_exceeded").length, 1);
+  assert.equal((await quotaForUser(db, USER_ID, NOW)).used, 5);
+});
+
+test("expand-only migration preserves stored legacy Codex rows and old writer SQL", async () => {
+  await add("legacy-before-upgrade", score("interactive-only", 103.02));
+  const before = await db.prepare("SELECT * FROM community_scores").first();
+  await db.exec("DROP TABLE community_provider_scores");
+  const upgrade = await readFile(new URL("../migrations/0002_provider_scores.sql", import.meta.url), "utf8");
+  await db.exec(upgrade.replaceAll("\n", " "));
+  assert.deepEqual(await db.prepare("SELECT * FROM community_scores").first(), before);
+  // The old deployment still writes exactly these original columns and conflict target.
+  await db.prepare("INSERT INTO quota_events (request_id, github_id, scope, score_digest, accepted_at) VALUES (?, ?, ?, ?, ?)").bind("old-writer-request", USER_ID, "interactive-only", "legacy-digest", NOW).run();
+  await db.prepare("INSERT INTO community_scores (github_id, scope, login, score_json, score_digest, window_end, window_timezone, eligible_until, agent_hours_per_day, updated_at, request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(github_id, scope) DO UPDATE SET request_id = excluded.request_id")
+    .bind(...[before.github_id, before.scope, before.login, before.score_json, before.score_digest, before.window_end, before.window_timezone, before.eligible_until, before.agent_hours_per_day, before.updated_at, "old-writer-request"]).run();
+  assert.equal((await getPublicScores(db, "interactive-only", { now: NOW }))[0].score.metrics.agent_hours_per_day, 103.02);
+  assert.equal((await add("new-after-upgrade", providerScore("claude"))).status, "accepted");
+  assert.equal((await quotaForUser(db, USER_ID, NOW)).used, 3);
 });

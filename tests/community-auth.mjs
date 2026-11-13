@@ -7,7 +7,7 @@ import { getSiteOrigin } from "../community/auth.js";
 import { routeCommunity } from "../community/api.js";
 
 const NOW = Date.parse("2026-09-09T12:00:00.000Z");
-const schema = (await readFile(new URL("../migrations/0001_community.sql", import.meta.url), "utf8")).replaceAll("\n", " ");
+const schema = (await Promise.all(["0001_community.sql", "0002_provider_scores.sql"].map((file) => readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8")))).join("\n").replaceAll("\n", " ");
 let mf;
 let db;
 let env;

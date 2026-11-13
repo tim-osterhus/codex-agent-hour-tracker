@@ -20,6 +20,9 @@ export const EXAMPLE = {
   },
   leverage: null,
 };
+export const scoreProvider = (score) => score.provider ?? "codex";
+export const providerLabel = (score) =>
+  ({ codex: "Codex", claude: "Claude", all: "Combined (Codex + Claude)" })[scoreProvider(score)];
 const fail = () => {
   throw new Error(
     "Use a valid public agent-hours-score JSON export. Private archives, unknown fields, and invalid values are not accepted.",
@@ -67,10 +70,12 @@ export function parseScore(text) {
     "scope",
     "metrics",
     "leverage",
+    ...(score?.schema_version === 2 ? ["provider"] : []),
   ]);
   if (
     score.schema !== "agent-hours-score" ||
-    score.schema_version !== 1 ||
+    ![1, 2].includes(score.schema_version) ||
+    (score.schema_version === 2 && !["codex", "claude", "all"].includes(score.provider)) ||
     typeof score.tracker_version !== "string" ||
     !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(score.tracker_version) ||
     score.methodology_version !== "1"
@@ -176,8 +181,9 @@ export class LocalScore {
       throw new Error("Choose a score JSON file of 32 KB or less.");
     return this.import(await file.text());
   }
-  preview(agents, hours, weekly = null) {
+  preview(agents, hours, weekly = null, provider = "codex") {
     this.clear();
+    if (!["codex", "claude", "all"].includes(provider)) fail();
     const daily = agents * hours;
     if (
       !Number.isSafeInteger(agents) ||
@@ -193,7 +199,7 @@ export class LocalScore {
       throw new Error(
         "Leave your weekly hours blank, or enter a number greater than zero.",
       );
-    this.score = structuredClone(EXAMPLE);
+    this.score = { ...structuredClone(EXAMPLE), schema_version: 2, tracker_version: "0.3.0", provider };
     this.score.metrics = {
       agent_hours_per_day: daily,
       total_agent_hours: daily * 30,
@@ -227,8 +233,8 @@ export function quotaNotice(quota) {
     : "";
   return (
     (quota.remaining === 0
-      ? "All 5 posts used. Posting is paused."
-      : "1 post left in your rolling 30-day limit.") + next
+      ? "All 5 posts used across all providers and session lists. Posting is paused."
+      : "1 post left across all providers and session lists in your rolling 30-day limit.") + next
   );
 }
 export const number = (n) =>
@@ -303,7 +309,7 @@ export function renderCard(score, format = "landscape", example = false) {
     left,
     square ? 168 : 141,
     16,
-    "AGENT HOURS / DAY",
+    `AGENT HOURS / DAY · ${providerLabel(score).toUpperCase()}`,
     "#abb0a6",
     "monospace",
   );

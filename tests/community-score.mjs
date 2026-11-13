@@ -76,3 +76,20 @@ test("server parser enforces finite numeric ceilings and exact score fields", ()
     assert.throws(() => parseScore(JSON.stringify(score), { now: NOW }));
   }
 });
+
+test("provider schema is exact and legacy Codex scores retain their original shape", () => {
+  const legacy = validScore();
+  assert.deepEqual(parseScore(legacy, { now: NOW }), legacy);
+  assert.equal(Object.hasOwn(legacy, "provider"), false);
+  for (const provider of ["codex", "claude", "all"]) {
+    const value = { ...validScore(), schema_version: 2, provider };
+    assert.deepEqual(parseScore(value, { now: NOW }), value);
+  }
+  for (const value of [
+    { ...validScore(), provider: "codex" },
+    { ...validScore(), schema_version: 2 },
+    { ...validScore(), schema_version: 2, provider: "other" },
+    { ...validScore(), schema_version: 2, provider: null },
+    { ...validScore(), schema_version: 2, provider: "all", providers: [] },
+  ]) assert.throws(() => parseScore(value, { now: NOW }));
+});

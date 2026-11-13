@@ -33,7 +33,7 @@ __all__ = [
 ]
 
 _SCHEMA = "agent-hours-archive"
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 _ALLOWED_SOURCE_KINDS = frozenset(
     ("root", "delegated", "unknown", "conflicting", "batch")
 )
@@ -49,6 +49,7 @@ _ARCHIVE_KEYS = frozenset(
 )
 _OBSERVATION_KEYS = frozenset(
     (
+        "provider",
         "turn_id_sha256",
         "started_at",
         "duration_seconds",
@@ -85,7 +86,9 @@ class ArchiveError(ValueError):
     """Raised when a private archive cannot be read or fails validation."""
 
 
-def collect_archive(paths: list[Path], *, label: str = "") -> dict:
+def collect_archive(
+    paths: list[Path], *, label: str = "", claude_paths: list[Path] | None = None
+) -> dict:
     """Collect timing metadata from JSONL roots or files into an archive.
 
     The session parser only materializes bounded timing/source scalars. Turn
@@ -101,35 +104,44 @@ def collect_archive(paths: list[Path], *, label: str = "") -> dict:
         "missing_paths": 0,
         "unsupported_paths": 0,
     }
-    best_by_source: dict[tuple[str, str], _ParsedTurn] = {}
+    best_by_source: dict[tuple[str, str, str], _ParsedTurn] = {}
 
-    seen_files: set[Path] = set()
-    for session_file in _iter_session_files(paths, path_diagnostics):
-        session_file = prefer_plain_session(session_file)
-        identity = session_file.absolute()
-        if identity in seen_files:
-            continue
-        seen_files.add(identity)
-        scan_diagnostics.files_scanned += 1
-        source_kind, unknown_labels, file_turns = _scan_file(
-            session_file, scan_diagnostics
-        )
-        for source_label in sorted(unknown_labels):
-            scan_diagnostics.unknown_sources[source_label] += 1
-        for parsed_turn in file_turns:
-            turn_digest = _turn_id_digest(parsed_turn.turn_id)
-            key = (source_kind, turn_digest)
-            previous = best_by_source.get(key)
-            if previous is not None:
-                scan_diagnostics.duplicate_turns += 1
-                if not _is_better_observation(parsed_turn, previous):
-                    continue
-            best_by_source[key] = parsed_turn
+    for provider, roots in (("codex", paths), ("claude", claude_paths or [])):
+        seen_files: set[Path] = set()
+        for session_file in _iter_session_files(roots, path_diagnostics):
+            session_file = prefer_plain_session(session_file)
+            identity = session_file.absolute()
+            if identity in seen_files:
+                continue
+            seen_files.add(identity)
+            scan_diagnostics.files_scanned += 1
+            if provider == "codex":
+                source_kind, unknown_labels, file_turns = _scan_file(
+                    session_file, scan_diagnostics
+                )
+                for source_label in sorted(unknown_labels):
+                    scan_diagnostics.unknown_sources[source_label] += 1
+                observations = [(source_kind, turn) for turn in file_turns]
+            else:
+                from .claude_scanner import _scan_file as scan_claude_file
+
+                observations = scan_claude_file(session_file, scan_diagnostics)
+            for source_kind, parsed_turn in observations:
+                turn_digest = _turn_id_digest(parsed_turn.turn_id)
+                key = (provider, source_kind, turn_digest)
+                previous = best_by_source.get(key)
+                if previous is not None:
+                    scan_diagnostics.duplicate_turns += 1
+                    if not _is_better_observation(parsed_turn, previous):
+                        continue
+                best_by_source[key] = parsed_turn
 
     observations = [
         _observation_from_parsed(source_kind, turn_digest, parsed_turn)
-        for (source_kind, turn_digest), parsed_turn in sorted(
-            best_by_source.items(), key=_archive_observation_sort_key
+        for (provider, source_kind, turn_digest), parsed_turn in sorted(
+            best_by_source.items(), key=lambda item: (
+                item[1].turn.started_at, item[0], item[1].turn.duration_seconds
+            )
         )
     ]
     diagnostics = _diagnostics_to_dict(
@@ -166,7 +178,7 @@ def load_archive(path: Path) -> dict:
 
 
 def merge_archives(
-    archives: list[dict], *, include_exec: bool = False
+    archives: list[dict], *, include_exec: bool = False, provider: str = "all"
 ) -> ScanResult:
     """Merge validated archive observations with scanner-compatible ranking.
 
@@ -178,8 +190,10 @@ def merge_archives(
     if not isinstance(include_exec, bool):
         raise ArchiveError("invalid archive: include_exec must be boolean")
 
-    best_turns: dict[str, _ParsedTurn] = {}
-    best_root_turns: dict[str, _ParsedTurn] = {}
+    if provider not in {"codex", "claude", "all"}:
+        raise ArchiveError("invalid archive provider selection")
+    best_turns: dict[tuple[str, str], _ParsedTurn] = {}
+    best_root_turns: dict[tuple[str, str], _ParsedTurn] = {}
     diagnostics = ScanDiagnostics()
 
     for archive in archives:
@@ -189,12 +203,15 @@ def merge_archives(
             normalized["diagnostics"],
         )
         for observation in normalized["observations"]:
+            observation_provider = observation.get("provider", "codex")
+            if provider != "all" and observation_provider != provider:
+                continue
             source_kind = observation["source_kind"]
             if source_kind == "batch" and not include_exec:
                 diagnostics.excluded_batch_turns += 1
                 continue
 
-            turn_digest = observation["turn_id_sha256"]
+            turn_digest = (observation_provider, observation["turn_id_sha256"])
             parsed_turn = _parsed_from_observation(observation)
             previous = best_turns.get(turn_digest)
             if previous is not None:
@@ -298,6 +315,7 @@ def _observation_from_parsed(
     parsed_turn: _ParsedTurn,
 ) -> dict[str, object]:
     return {
+        "provider": parsed_turn.turn.provider,
         "turn_id_sha256": turn_digest,
         "started_at": parsed_turn.turn.started_at,
         "duration_seconds": parsed_turn.turn.duration_seconds,
@@ -323,21 +341,11 @@ def _parsed_from_observation(observation: Mapping[str, object]) -> _ParsedTurn:
         raise ArchiveError("invalid archive: malformed observation")
     return _ParsedTurn(
         turn_id=turn_digest,
-        turn=CompletedTurn(float(started_at), float(duration_seconds)),
+        turn=CompletedTurn(
+            float(started_at), float(duration_seconds),
+            provider=str(observation.get("provider", "codex")),
+        ),
         event_timing_usable=event_timing_usable,
-    )
-
-
-def _archive_observation_sort_key(
-    item: tuple[tuple[str, str], _ParsedTurn]
-) -> tuple[float, str, str, float, bool]:
-    (source_kind, turn_digest), parsed_turn = item
-    return (
-        parsed_turn.turn.started_at,
-        source_kind,
-        turn_digest,
-        parsed_turn.turn.duration_seconds,
-        not parsed_turn.event_timing_usable,
     )
 
 
@@ -388,9 +396,7 @@ def _validate_archive(value: object) -> dict:
         _invalid("unsupported archive fields")
     if value.get("schema") != _SCHEMA:
         _invalid("unknown archive schema")
-    if value.get("schema_version") != _SCHEMA_VERSION or isinstance(
-        value.get("schema_version"), bool
-    ):
+    if type(value.get("schema_version")) is not int or value["schema_version"] not in (1, 2):
         _invalid("unsupported archive schema version")
     if value.get("methodology_version") != METHODOLOGY_VERSION:
         _invalid("incompatible archive methodology")
@@ -405,13 +411,13 @@ def _validate_archive(value: object) -> dict:
     if not isinstance(observations_value, list):
         _invalid("malformed observations")
     observations = [
-        _validate_observation(observation)
+        _validate_observation(observation, version=value["schema_version"])
         for observation in observations_value
     ]
     diagnostics = _validate_diagnostics(value.get("diagnostics", {}))
     result: dict[str, object] = {
         "schema": _SCHEMA,
-        "schema_version": _SCHEMA_VERSION,
+        "schema_version": value["schema_version"],
         "methodology_version": METHODOLOGY_VERSION,
         "observations": sorted(observations, key=_observation_value_sort_key),
         "diagnostics": diagnostics,
@@ -421,11 +427,14 @@ def _validate_archive(value: object) -> dict:
     return result
 
 
-def _validate_observation(value: object) -> dict[str, object]:
+def _validate_observation(value: object, *, version: int) -> dict[str, object]:
     if not isinstance(value, Mapping):
         _invalid("malformed observation")
-    if set(value) - _OBSERVATION_KEYS:
+    allowed_keys = _OBSERVATION_KEYS if version == 2 else _OBSERVATION_KEYS - {"provider"}
+    if set(value) - allowed_keys:
         _invalid("unsupported observation fields")
+    if version == 2 and value.get("provider") not in ("codex", "claude"):
+        _invalid("unsupported observation provider")
     if "turn_id_sha256" not in value:
         _invalid("malformed observation ID")
     turn_digest = value["turn_id_sha256"]
@@ -444,6 +453,7 @@ def _validate_observation(value: object) -> dict[str, object]:
     if not isinstance(source_kind, str) or source_kind not in _ALLOWED_SOURCE_KINDS:
         _invalid("unsupported observation source")
     return {
+        **({"provider": value["provider"]} if version == 2 else {}),
         "turn_id_sha256": turn_digest,
         "started_at": started_at,
         "duration_seconds": duration_seconds,
@@ -493,7 +503,7 @@ def _observation_value_sort_key(
 ) -> tuple[float, str, str, float, bool]:
     return (
         observation["started_at"],
-        observation["source_kind"],
+        observation.get("provider", "codex") + ":" + observation["source_kind"],
         observation["turn_id_sha256"],
         observation["duration_seconds"],
         not observation["event_timing_usable"],
@@ -536,7 +546,8 @@ def _validate_label(value: object, *, allow_empty: bool) -> None:
 
 
 def _safe_source_label(value: str) -> bool:
-    return bool(_UNKNOWN_FINGERPRINT.fullmatch(value)) or bool(
+    return value in {"claude:no-native-duration", "claude:unverified-main-origin",
+                     "claude:ignored-sidechain-duration", "claude:async-agent-unmeasured"} or bool(_UNKNOWN_FINGERPRINT.fullmatch(value)) or bool(
         _UNKNOWN_SOURCE_LABEL.fullmatch(value)
     )
 
