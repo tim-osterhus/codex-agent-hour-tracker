@@ -84,3 +84,16 @@ test("quota warnings begin on fourth accepted post and use server release time",
     /2026-10-01T12:00:00Z/,
   );
 });
+
+test("provider demos stay local while v2 handoffs preserve provider and strip leverage", () => {
+  for (const provider of ["codex", "claude", "all"]) {
+    const state = new score.LocalScore();
+    state.preview(2, 3, 40, provider);
+    assert.equal(state.score.provider, provider);
+    assert.equal(state.score.schema_version, 2);
+    assert.throws(() => state.handoff());
+    const measured = { ...structuredClone(score.EXAMPLE), schema_version: 2, provider };
+    state.import(JSON.stringify(measured));
+    assert.deepEqual(JSON.parse(state.handoff()), measured);
+  }
+});

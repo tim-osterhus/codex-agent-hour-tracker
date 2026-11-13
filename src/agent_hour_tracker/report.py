@@ -113,6 +113,7 @@ def render_share(
     end: date | None = None,
     timezone: tzinfo | str | None = None,
     scope: str | None = None,
+    provider: str = "codex",
     leverage: LeverageMetrics | None = None,
 ) -> str:
     """Render a deterministic, conversation-free Archive Score card."""
@@ -123,7 +124,7 @@ def render_share(
     day_count = len(days)
     completed_turns = sum(day.completed_turns for day in days)
     lines = [
-        "CODEX AGENT-HOUR SCORE",
+        {"codex": "CODEX", "claude": "CLAUDE CODE", "all": "CODEX + CLAUDE CODE"}[provider] + " AGENT-HOUR SCORE",
         "",
         (
             f"{day_count} complete calendar days | "

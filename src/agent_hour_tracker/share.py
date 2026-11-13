@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 _SCHEMA = "agent-hours-score"
-_SCHEMA_VERSION = 1
+_PROVIDERS = frozenset(("codex", "claude", "all"))
 _SCOPES = frozenset(("interactive-only", "including-exec"))
 _LEVERAGE_BASES = frozenset(("reported-period", "estimated-weekly"))
 _TOP_LEVEL_KEYS = frozenset(
@@ -60,6 +60,7 @@ def build_public_share(
     end: date | None = None,
     timezone: tzinfo | str = "UTC",
     scope: str = "interactive-only",
+    provider: str = "codex",
     leverage: LeverageMetrics | None = None,
 ) -> dict[str, Any]:
     """Build the exact public score schema from aggregate report metrics.
@@ -88,6 +89,8 @@ def build_public_share(
         resolved_start + timedelta(days=index) for index in range(day_count)
     ):
         raise ValueError("share bounds must match contiguous report days")
+    if not isinstance(provider, str) or provider not in _PROVIDERS:
+        raise ValueError("unsupported share provider")
     if not isinstance(scope, str) or scope not in _SCOPES:
         raise ValueError("unsupported share scope")
     if not isinstance(tracker_version, str) or not _VERSION_PATTERN.fullmatch(
@@ -120,7 +123,7 @@ def build_public_share(
         raise ValueError("public share peak exceeds total")
     payload = {
         "schema": _SCHEMA,
-        "schema_version": _SCHEMA_VERSION,
+        "schema_version": 1 if provider == "codex" else 2,
         "tracker_version": tracker_version,
         "methodology_version": methodology_version,
         "window": {
@@ -139,6 +142,8 @@ def build_public_share(
         },
         "leverage": _leverage_payload(leverage),
     }
+    if provider != "codex":
+        payload["provider"] = provider
     validate_public_share(payload)
     return payload
 
@@ -152,6 +157,7 @@ def render_share_json(
     end: date | None = None,
     timezone: tzinfo | str = "UTC",
     scope: str = "interactive-only",
+    provider: str = "codex",
     leverage: LeverageMetrics | None = None,
 ) -> str:
     """Serialize a public score using stable, finite JSON output."""
@@ -164,6 +170,7 @@ def render_share_json(
         end=end,
         timezone=timezone,
         scope=scope,
+        provider=provider,
         leverage=leverage,
     )
     return json.dumps(
@@ -178,10 +185,20 @@ def render_share_json(
 def validate_public_share(payload: Mapping[str, Any]) -> None:
     """Validate the public schema strictly, rejecting private/extra fields."""
 
-    if not isinstance(payload, Mapping) or set(payload) != _TOP_LEVEL_KEYS:
+    if not isinstance(payload, Mapping):
         raise ValueError("invalid public share fields")
-    if payload["schema"] != _SCHEMA or payload["schema_version"] != _SCHEMA_VERSION:
+    version = payload.get("schema_version")
+    if type(version) is not int or version not in (1, 2):
         raise ValueError("unsupported public share schema")
+    expected_keys = _TOP_LEVEL_KEYS | {"provider"} if version == 2 else _TOP_LEVEL_KEYS
+    if set(payload) != expected_keys:
+        raise ValueError("invalid public share fields")
+    if payload["schema"] != _SCHEMA:
+        raise ValueError("unsupported public share schema")
+    if version == 2 and (
+        not isinstance(payload["provider"], str) or payload["provider"] not in _PROVIDERS
+    ):
+        raise ValueError("unsupported share provider")
     if not isinstance(payload["tracker_version"], str) or not payload[
         "tracker_version"
     ]:

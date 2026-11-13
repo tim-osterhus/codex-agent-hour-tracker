@@ -196,6 +196,7 @@ test("community review shows readable public fields while exact JSON starts clos
   assert.deepEqual(
     Array.from(summary.querySelectorAll("dt"), (node) => node.textContent),
     [
+      "Provider",
       "Agent hours / day",
       "Total agent hours",
       "Peak day",
@@ -211,6 +212,7 @@ test("community review shows readable public fields while exact JSON starts clos
   assert.deepEqual(
     Array.from(summary.querySelectorAll("dd"), (node) => node.textContent),
     [
+      "Codex",
       "12.4",
       "372",
       "28.6 hours",
@@ -259,7 +261,7 @@ test("public identity is rendered as text and scopes remain separate", async () 
   p.fire("including-exec");
   await p.tick();
   assert.ok(
-    p.calls.some((c) => c.url === "/api/community/scores?scope=including-exec"),
+    p.calls.some((c) => c.url === "/api/community/scores?scope=including-exec&provider=codex"),
   );
 });
 test("keyboard arrows switch tabs; slow file reads cannot overwrite a later paste", async () => {
@@ -370,4 +372,71 @@ test("successful deletion bypasses cached board responses on its follow-up read"
   const reads = p.calls.filter((call) => call.url.includes("?scope="));
   assert.equal(reads.length, 2);
   assert.equal(reads[1].cache, "no-store");
+});
+
+const publicV2 = (provider) => ({ ...structuredClone(score.EXAMPLE), schema_version: 2, tracker_version: "0.3.0", provider });
+test("provider commands and explicit demos identify each provider without enabling sharing", async () => {
+  const p = await page();
+  p.fire("preview-tab");
+  for (const provider of ["claude", "all", "codex"]) {
+    // Linkedom exposes select.value as a getter only.
+    Object.defineProperty(p.$("command-provider"), "value", { value: provider, configurable: true });
+    p.fire("command-provider", "change");
+    assert.match(p.$("command").textContent, new RegExp(`--provider ${provider} --share --format json`));
+    p.fire("preview-" + provider);
+    assert.equal(p.$("preview-" + provider).getAttribute("aria-pressed"), "true");
+    assert.match(p.$("preview-state").textContent, new RegExp(provider === "all" ? "Combined" : provider === "codex" ? "Codex" : "Claude"));
+    assert.equal(p.$("share-actions").hidden, true);
+    const card = decodeURIComponent(p.$("export-preview").src.split(",").slice(1).join(","));
+    assert.ok(card.includes(provider === "all" ? "COMBINED (CODEX + CLAUDE)" : provider.toUpperCase()));
+  }
+  assert.equal(p.calls.length, 0);
+  assert.equal(p.storage.size, 0);
+});
+test("v2 imports retain their provider through the explicit community handoff", async () => {
+  const p = await page();
+  const value = publicV2("claude");
+  p.$("score-json").value = JSON.stringify(value);
+  p.fire("import");
+  assert.match(p.$("preview-state").textContent, /Claude/);
+  assert.match(p.$("export-preview").alt, /Claude/);
+  assert.equal(p.storage.size, 0);
+  p.fire("share-community");
+  assert.deepEqual(JSON.parse(p.storage.get("agent-hours-community-draft")), value);
+});
+test("community boards isolate all provider and scope combinations", async () => {
+  const rows = [score.EXAMPLE, publicV2("claude"), publicV2("all")].flatMap(value => ["interactive-only", "including-exec"].map(scope => ({ login: "tester", score: { ...value, scope }, updated_at: "2026-09-09T00:00:00Z" })));
+  const p = await page(true, { rows });
+  assert.equal(p.$("score-rows").children.length, 1);
+  assert.match(p.$("score-rows").textContent, /Codex/);
+  for (const provider of ["claude", "all", "codex"]) {
+    p.fire("board-" + provider);
+    for (const scope of ["including-exec", "interactive-only"]) {
+      p.fire(scope);
+      await p.tick();
+      assert.equal(p.$("score-rows").children.length, 1);
+      assert.equal(p.calls.at(-1).url, `/api/community/scores?scope=${scope}&provider=${provider}`);
+      assert.match(p.$("score-rows").textContent, new RegExp(provider === "all" ? "Combined" : provider === "claude" ? "Claude" : "Codex"));
+    }
+  }
+});
+test("own provider scores show identity and delete only the selected provider", async () => {
+  const p = await page(true, { ownScores: [score.EXAMPLE, publicV2("claude"), publicV2("all")].map(value => ({ login: "tester", score: value })) });
+  const buttons = p.$("own-scores").querySelectorAll("button");
+  assert.equal(buttons.length, 3);
+  assert.match(buttons[1].textContent, /Claude/);
+  buttons[1].click();
+  await p.tick();
+  const deletion = p.calls.find(call => call.method === "DELETE");
+  assert.deepEqual(JSON.parse(deletion.body), { scope: "interactive-only", provider: "claude" });
+});
+
+
+test("timing explanation distinguishes Codex estimates from Claude native duration", async () => {
+  const p = await page();
+  const copy = p.$("nerds").textContent.replace(/\s+/g, " ");
+  assert.match(copy, /Codex caps each recorded event gap at 30 minutes and uses fallback estimates/);
+  assert.match(copy, /Claude uses native main-session duration records and completed foreground-agent duration summaries, without the Codex gap cap/);
+  assert.match(copy, /Missing Claude timing and untimed async launches contribute no runtime/);
+  assert.doesNotMatch(copy, /Claude timing is estimated from transcript events/);
 });

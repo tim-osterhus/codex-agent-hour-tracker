@@ -11,18 +11,19 @@ Use the installed `agent-hours` CLI, or `uvx codex-agent-hour-tracker`. The pack
 
 - The Agent-Hour Score is mean cumulative agent-hours across exactly the 30 most recent completed local calendar days ending yesterday, including zero-use days.
 - Overlapping turns count independently. Runtime does not establish productivity, work quality, or time saved.
-- Default scope is `interactive-only`. Explain that this excludes exec/batch files but includes non-batch unknown sources.
-- Use `--include-exec` when the user wants exec/batch activity included. Keep the scope visible when comparing reports.
+- Default scope is `interactive-only`. For Codex, this excludes exec/batch files but includes non-batch unknown sources. Claude native turns remain eligible under either scope.
+- Use `--include-exec` when the user wants Codex exec/batch activity included. Keep the scope visible when comparing reports.
 - Human-initiated top-level count, mean, and median describe only the recognized root sample.
 - Use an explicit common `--timezone` for comparisons across machines.
 
 ## Claude Code
 
-- Codex remains the default. Use `--provider claude` or `--provider all` for local Claude or combined reports.
+- Codex remains the default. Use `--provider claude` or `--provider all` for Claude or combined reports and public scores.
 - Repeat `--claude-sessions-dir PATH` for explicit Claude project roots. Default discovery uses `$CLAUDE_CONFIG_DIR/projects` or `~/.claude/projects`.
 - Count only native main timers and completed foreground-agent timers. Child-native-only and async histories without completion timing are excluded. Never infer runtime or human initiation from transcript content.
 - Combined totals add provider runtime, including overlap. Use provider subtotals rather than comparing combined totals with Codex benchmarks.
-- Public `--share` supports only Codex. Never relabel Claude or combined totals as a Codex score.
+- Use `agent-hours --provider claude --share --format json` for a Claude public score, or `--provider all` for a combined score. Never relabel either as Codex.
+- Claude main-session origin is unverified and can include SDK or headless activity. Claude and combined scores do not establish human-only activity.
 
 ## Profiles and machines
 
@@ -51,8 +52,10 @@ Use the installed `agent-hours` CLI, or `uvx codex-agent-hour-tracker`. The pack
 ## Sharing
 
 - `--share` produces the canonical aggregate text card. `--share --format json` produces sanitized public score JSON for the website.
+- Codex public JSON retains schema v1. Claude and combined public JSON use schema v2 with a required provider. Combined public scores contain one aggregate.
 - Custom date bounds are unavailable with `--share`. Do not relabel a custom report as a canonical score.
 - Only sanitized public score output may enter the website's share studio. Never paste a private merge export.
 - Public output omits daily rows, machine labels, paths, identifiers, and diagnostics. Its aggregate numbers, dates, timezone, and optional human-hours assumptions are still an intentional disclosure.
 - A request to calculate or explain a result does not authorize publishing it. Publish only when the user requests that disclosure and destination.
 - Imported share cards are self-reported, not verified. Benchmarks are dated contextual references, not personal percentiles.
+- Community boards separate provider and session scope. Posting replaces only that provider/scope score. Five accepted posts per GitHub account in a rolling 30-day window apply across every board. Community posts omit leverage and human-hours assumptions.

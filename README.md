@@ -52,7 +52,7 @@ Claude main totals use native `system` / `turn_duration` records with `durationM
 
 Combined reports show provider subtotals and add concurrent runtime across both providers. Combined CSV appends provider hours and turn counts to the aggregate columns. Single-provider CSV retains the existing three columns.
 
-Public `--share` output and published benchmarks remain Codex-only. Claude and combined selections support local text, CSV, and private timing exports.
+Public `--share` output supports Codex, Claude Code, and combined totals. Historical published benchmarks remain Codex-only. Claude and combined scores retain the timing coverage and origin limits described above.
 
 For four machines, run this export on each machine with a distinct label and filename:
 
@@ -102,9 +102,13 @@ Agent Leverage divides agent runtime by human hours over the same period. A week
 
 ```bash
 agent-hours --share --format json
+agent-hours --provider claude --share --format json
+agent-hours --provider all --share --format json
 ```
 
 Upload or paste this sanitized aggregate JSON into the [share studio](https://agenthours.dev/#share). Preview and download a square or landscape PNG/SVG in your browser. Importing a score and making a card run locally. The website accepts only the public score schema.
+
+Codex public JSON keeps schema v1. Claude and combined JSON use schema v2 with an explicit provider. Combined public scores contain one aggregate. The `scope` field selects Codex source eligibility. Claude native turns retain unverified main-session origin under either scope. See [export contracts](docs/exports.md).
 
 `--share` is the safe default for sharing, but dates, counts, durations, timezone, and optional human-hours assumptions remain a deliberate aggregate disclosure. Review the card before posting it.
 
@@ -112,9 +116,11 @@ Upload or paste this sanitized aggregate JSON into the [share studio](https://ag
 
 The separate [community page](https://agenthours.dev/community/) shows self-reported scores. GitHub sign-in identifies the person posting, but does not verify their runtime. Scores can be edited or inflated.
 
+Codex, Claude, and combined scores have separate boards for each session scope. Posting replaces your score for that provider and scope. Historical Codex benchmarks do not establish Claude or combined rankings.
+
 After importing your score, choose **Share to community**. Review the public fields, sign in with GitHub, and confirm the post. Importing a file never posts it. The community score omits Agent Leverage and human-hours assumptions.
 
-Each GitHub account can make five successful posts in a rolling 30-day window. Updating a score counts as a post. Deleting it does not refund a slot. The page warns you after your fourth post and shows when a slot opens.
+Each GitHub account can make five successful posts in a rolling 30-day window across all providers and session scopes. Updating a score counts as a post. Deleting it does not refund a slot. The page warns you after your fourth post and shows when a slot opens.
 
 The local card tool works without an account or community access. Hosting and privacy details are in the [community guide](docs/community.md).
 

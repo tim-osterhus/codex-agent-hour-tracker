@@ -108,7 +108,8 @@ def main(argv: list[str] | None = None) -> int:
                     start=start,
                     end=end,
                     timezone=timezone,
-                    scope=scope,
+                    scope="including-exec" if arguments.include_exec else "interactive-only",
+                    provider=arguments.provider,
                     leverage=leverage,
                 )
             )
@@ -122,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
                     end=end,
                     timezone=timezone,
                     scope=scope,
+                    provider=arguments.provider,
                     leverage=leverage,
                 )
             )
@@ -249,9 +251,6 @@ class _InputError(ValueError):
 
 
 def _validate_arguments(arguments: argparse.Namespace, stderr: TextIO) -> bool:
-    if arguments.share and arguments.provider != "codex":
-        print("error: --share supports only --provider codex; Claude and combined totals are available in local reports", file=stderr)
-        return False
     if (
         arguments.provider == "codex" and arguments.claude_sessions_dir
         or arguments.provider == "claude" and arguments.sessions_dir

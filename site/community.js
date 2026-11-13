@@ -3,13 +3,16 @@ import {
   parseScore,
   number,
   quotaNotice,
-} from "./score.mjs?v=community-1";
+  scoreProvider,
+  providerLabel,
+} from "./score.mjs?v=providers-030";
 const $ = (id) => document.getElementById(id);
 const state = new LocalScore(),
   draftKey = "agent-hours-community-draft";
 let config = { enabled: false },
   session = { authenticated: false },
-  scope = "interactive-only";
+  scope = "interactive-only",
+  provider = "codex";
 let revision = 0,
   boardRevision = 0,
   token = null,
@@ -83,6 +86,7 @@ function render() {
     const score = state.score,
       metrics = score.metrics;
     const fields = [
+      ["Provider", providerLabel(score)],
       ["Agent hours / day", metrics.agent_hours_per_day],
       ["Total agent hours", metrics.total_agent_hours],
       ["Peak day", `${metrics.peak_day_agent_hours} hours`],
@@ -276,17 +280,18 @@ async function loadBoard({ fresh = false } = {}) {
   $("score-rows").replaceChildren();
   try {
     const data = await api(
-      "scores?scope=" + scope,
+      "scores?scope=" + scope + "&provider=" + provider,
       fresh ? { cache: "no-store" } : {},
     );
     if (current !== boardRevision) return;
     if (!Array.isArray(data.scores)) throw new Error();
     for (const row of data.scores.slice(0, 50)) {
       const score = parseScore(JSON.stringify(row.score));
-      if (score.scope !== scope) continue;
+      if (score.scope !== scope || scoreProvider(score) !== provider) continue;
       const tr = document.createElement("tr");
       for (const value of [
         row.login,
+        providerLabel(score),
         number(score.metrics.agent_hours_per_day),
         number(score.metrics.total_agent_hours),
         score.window.end,
@@ -313,6 +318,13 @@ for (const choice of ["interactive-only", "including-exec"])
       $(id).setAttribute("aria-pressed", String(scope === id));
     loadBoard();
   });
+for (const choice of ["codex", "claude", "all"])
+  $("board-" + choice).addEventListener("click", () => {
+    provider = choice;
+    for (const id of ["codex", "claude", "all"])
+      $("board-" + id).setAttribute("aria-pressed", String(provider === id));
+    loadBoard();
+  });
 async function loadSession() {
   session = await api("session");
   $("own-scores").replaceChildren();
@@ -320,13 +332,13 @@ async function loadSession() {
     const item = document.createElement("div"),
       label = document.createElement("p"),
       button = document.createElement("button");
-    label.textContent = `${row.score.scope}: ${number(row.score.metrics.agent_hours_per_day)} hours / day`;
+    label.textContent = `${providerLabel(row.score)} · ${row.score.scope}: ${number(row.score.metrics.agent_hours_per_day)} hours / day`;
     button.type = "button";
-    button.textContent = `Delete my ${row.score.scope} score`;
+    button.textContent = `Delete my ${providerLabel(row.score)} ${row.score.scope} score`;
     button.addEventListener("click", async () => {
       button.disabled = true;
       try {
-        await api("scores", mutation("DELETE", { scope: row.score.scope }));
+        await api("scores", mutation("DELETE", { scope: row.score.scope, provider: scoreProvider(row.score) }));
         $("account-status").textContent =
           "Score deleted. Your post limit stays the same.";
         await Promise.all([loadSession(), loadBoard({ fresh: true })]);

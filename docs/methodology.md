@@ -96,6 +96,8 @@ Files without either supported timing source contribute no runtime. The scanner 
 
 Main-session human initiation is unverified. Native Claude totals may include SDK or headless activity. Main observations have unknown source and contribute to runtime, but not human-initiated top-level statistics. Completed foreground-agent summaries are delegated. Immutable event UUIDs deduplicate copied and forked histories within Claude. Completion UUID plus agent ID distinguishes resumed delegated runs. Provider-scoped identity prevents collisions with Codex.
 
-A parent main timer and its delegated agent summary count as separate agent runtime. Combined totals add completed runtime across providers, including overlap. Provider totals use the same date range and timezone. Public scores and published Codex benchmarks retain their Codex-only interpretation.
+A parent main timer and its delegated agent summary count as separate agent runtime. Combined totals add completed runtime across providers, including overlap. Provider totals use the same date range and timezone.
+
+Public scores identify Codex, Claude Code, or combined activity. Version 1 public scores and published Codex benchmarks retain their Codex-only interpretation. Version 2 public scores carry a provider selection. Their scope enum controls Codex source selection. Claude native recorded turns retain unverified main-session origin under either scope. Claude and combined scores do not imply human-only activity.
 
 Diagnostics report files without a main native timer, files with unverified main origin, ignored child-native timer records, and async launches without completion timing. These coverage counts do not measure missing runtime.

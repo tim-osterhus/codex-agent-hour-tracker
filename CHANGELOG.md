@@ -5,7 +5,9 @@
 - Add Claude Code native main and completed foreground-agent timing scans and Codex, Claude, or combined local reports.
 - Add repeatable Claude roots, provider breakdowns, and combined CSV provider columns.
 - Write provider-aware private archive schema v2. Continue reading v1 as Codex and deduplicate copied histories within each provider.
-- Keep public scores and benchmarks Codex-only. Reject Claude or combined `--share` selections.
+- Add Claude and combined `--share` text and public JSON schema v2 with an explicit provider. Preserve Codex public JSON schema v1.
+- Add provider selections to share cards and separate community boards by provider and session scope. Preserve the shared five-post account quota and aggregate-only public fields.
+- Keep historical benchmarks Codex-only. Label Claude main-session origin as unverified in Claude and combined views.
 - Exclude Claude history without native timing and unverified human initiation from human-root statistics.
 
 ## 0.2.2

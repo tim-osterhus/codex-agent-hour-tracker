@@ -239,7 +239,7 @@ class PublicSiteTests(unittest.TestCase):
         self.assertEqual(len(self.parser.tags_named("main")), 1)
         self.assertTrue(self.parser.tags_named("header"))
         self.assertTrue(self.parser.tags_named("footer"))
-        self.assertIn("uvx codex-agent-hour-tracker --share", self.index)
+        self.assertIn("uvx codex-agent-hour-tracker --provider codex --share --format json", self.index)
         self.assertTrue(self.parser.tags_named("button"))
         self.assertTrue((SITE_ROOT / "benchmarks/index.html").is_file())
 

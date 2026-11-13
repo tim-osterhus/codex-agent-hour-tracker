@@ -88,24 +88,38 @@ class ProviderIntegrationTests(unittest.TestCase):
             self.assertEqual(rows[0]["claude_agent_hours"], "2.000000")
             self.assertEqual(rows[1]["agent_hours"], "0.000000")
 
-    def test_share_guards_and_codex_filter_from_mixed_archive(self) -> None:
-        for provider in ("all", "claude"):
-            code, stdout, stderr = self.run_cli("--provider", provider, "--share")
-            self.assertEqual(code, 2)
-            self.assertEqual(stdout, "")
-            self.assertIn("supports only --provider codex", stderr)
+    def test_share_provider_filter_from_old_and_mixed_archives(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            archive = self.archive("codex", 3600)
-            archive["observations"] += self.archive("claude", 7200)["observations"]
-            path = Path(temporary) / "mixed.json"
-            write_archive(archive, path)
-            with patch("agent_hour_tracker.cli._today_in_timezone", return_value=__import__("datetime").date(2026, 1, 2)):
-                code, stdout, stderr = self.run_cli("--provider", "codex", "--merge", str(path), "--share", "--format", "json", "--timezone", "UTC")
-            self.assertEqual(code, 0, stderr)
-            score = json.loads(stdout)
-            self.assertEqual(score["schema_version"], 1)
-            self.assertEqual(score["metrics"]["total_agent_hours"], 1.0)
-            self.assertNotIn("provider", score)
+            old = self.archive("codex", 3600, version=1)
+            mixed = self.archive("codex", 3600)
+            mixed["observations"] += self.archive("claude", 7200)["observations"]
+            paths = []
+            for index, archive in enumerate((old, mixed)):
+                archive["label"] = "PRIVATE_MACHINE_LABEL"
+                path = Path(temporary) / f"private-machine-{index}.json"
+                write_archive(archive, path)
+                paths.extend(("--merge", str(path)))
+            for provider, hours in (("codex", 1), ("claude", 2), ("all", 3)):
+                with self.subTest(provider=provider), patch("agent_hour_tracker.cli._today_in_timezone", return_value=__import__("datetime").date(2026, 1, 2)):
+                    code, stdout, stderr = self.run_cli("--provider", provider, *paths, "--share", "--format", "json", "--timezone", "UTC")
+                self.assertEqual(code, 0, stderr)
+                score = json.loads(stdout)
+                self.assertEqual(score["schema_version"], 1 if provider == "codex" else 2)
+                self.assertEqual(score.get("provider", "codex"), provider)
+                self.assertEqual(score["metrics"]["total_agent_hours"], hours)
+                self.assertEqual(score["metrics"]["completed_turns"], 1 if provider != "all" else 2)
+                self.assertEqual(score["window"], {"start": "2025-12-03", "end": "2026-01-01", "days": 30, "timezone": "UTC"})
+                self.assertEqual(score["scope"], "interactive-only")
+                self.assertIsNone(score["leverage"])
+                if provider == "codex":
+                    self.assertNotIn("provider", score)
+                for marker in ("PRIVATE_MACHINE_LABEL", "private-machine", "turn_id", "diagnostics", "observations", "account", "daily", temporary):
+                    self.assertNotIn(marker, stdout + stderr)
+                with patch("agent_hour_tracker.cli._today_in_timezone", return_value=__import__("datetime").date(2026, 1, 2)):
+                    code, text, stderr = self.run_cli("--provider", provider, *paths, "--share", "--timezone", "UTC")
+                self.assertEqual(code, 0, stderr)
+                if provider != "codex":
+                    self.assertIn("origin unverified", text)
 
     def test_explicit_roots_infer_provider_and_export_private_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -118,6 +132,7 @@ class ProviderIntegrationTests(unittest.TestCase):
                 "timestamp": "2026-01-01T01:00:00Z", "uuid": "00000000-0000-0000-0000-000000000001",
                 "isSidechain": False, "content": marker,
             }) + "\n")
+            (claude / "PRIVATE_BAD_FILE.jsonl").write_text('{"type": "system", "subtype": "turn_duration", "durationMs": PRIVATE_BAD_CONTENT}\n')
             path = root / "private.json"
             code, stdout, stderr = self.run_cli("--sessions-dir", str(codex), "--claude-sessions-dir", str(claude), "--export", str(path))
             self.assertEqual(code, 0, stderr)
@@ -127,6 +142,17 @@ class ProviderIntegrationTests(unittest.TestCase):
             self.assertEqual(archive["observations"][0]["provider"], "claude")
             self.assertNotIn(marker, path.read_text() + stderr)
             self.assertEqual(merge_archives([archive]).turns[0].duration_seconds, 3600)
+            for roots, provider in ((("--claude-sessions-dir", str(claude)), "claude"), (("--sessions-dir", str(codex), "--claude-sessions-dir", str(claude)), "all")):
+                with patch("agent_hour_tracker.cli._today_in_timezone", return_value=__import__("datetime").date(2026, 1, 2)):
+                    code, public, errors = self.run_cli(*roots, "--share", "--format", "json", "--timezone", "UTC")
+                self.assertEqual(code, 0, errors)
+                score = json.loads(public)
+                self.assertEqual(score["provider"], provider)
+                self.assertEqual(score["metrics"]["total_agent_hours"], 1)
+                self.assertNotIn(marker, public + errors)
+                self.assertNotIn(str(root), public + errors)
+                self.assertNotIn("PRIVATE_BAD", public + errors)
+                self.assertIn("Malformed lines: 1", errors)
             code, stdout, stderr = self.run_cli("--claude-sessions-dir", str(claude), "--start", "2026-01-01", "--end", "2026-01-01", "--timezone", "UTC")
             self.assertEqual(code, 0, stderr)
             self.assertIn("Providers: Claude Code", stdout)

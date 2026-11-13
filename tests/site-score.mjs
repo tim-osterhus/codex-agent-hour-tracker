@@ -14,16 +14,16 @@ test("community release bypasses cached website assets and module dependencies",
     "../site/community/index.html",
   ]) {
     const html = readFileSync(new URL(path, import.meta.url), "utf8");
-    assert.match(html, /href="\/styles\.css\?v=community-1"/);
+    assert.match(html, /href="\/styles\.css\?v=providers-030"/);
     assert.doesNotMatch(html, /(?:src|href)="\/(?:app\.js|styles\.css)"/);
     if (path === "../site/index.html") {
-      assert.match(html, /src="\/app\.js\?v=community-1"/);
+      assert.match(html, /src="\/app\.js\?v=providers-030"/);
     }
   }
   for (const path of ["../site/app.js", "../site/community.js"]) {
     assert.match(
       readFileSync(new URL(path, import.meta.url), "utf8"),
-      /from "\.\/score\.mjs\?v=community-1"/,
+      /from "\.\/score\.mjs\?v=providers-030"/,
     );
   }
 });
@@ -140,4 +140,25 @@ test("rendered text is escaped even outside validation", () => {
   const value = structuredClone(EXAMPLE);
   value.window.timezone = "<script>bad()</script>";
   assert.ok(!renderCard(value).includes("<script>"));
+});
+
+test("public v2 requires one supported provider and keeps the v1 contract exact", () => {
+  for (const provider of ["codex", "claude", "all"]) {
+    const value = { ...structuredClone(EXAMPLE), schema_version: 2, tracker_version: "0.3.0", provider };
+    assert.deepEqual(parseScore(JSON.stringify(value)), value);
+    for (const format of ["landscape", "square"]) {
+      const svg = renderCard(value, format);
+      assert.ok(svg.includes(provider === "all" ? "COMBINED (CODEX + CLAUDE)" : provider.toUpperCase()));
+      assert.ok(svg.includes("SELF-REPORTED"));
+    }
+  }
+  for (const value of [
+    { ...EXAMPLE, provider: "codex" },
+    { ...EXAMPLE, schema_version: 2 },
+    ...[null, "unknown", "CODEX", ["claude"]].map(provider => ({ ...EXAMPLE, schema_version: 2, provider })),
+    { ...EXAMPLE, schema_version: 2, provider: "claude", raw_sessions: [] },
+    { schema: "agent-hours-archive", schema_version: 2, provider: "claude", observations: [] },
+    { schema: "agent-hours", schema_version: 2, provider: "claude", sessions: [] },
+  ]) assert.throws(() => parseScore(JSON.stringify(value)));
+  assert.ok(renderCard(EXAMPLE).includes("CODEX"), "Legacy cards must identify Codex");
 });

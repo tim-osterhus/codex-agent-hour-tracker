@@ -12,18 +12,20 @@ A post contains your GitHub login, posting time, and these score fields:
 
 - Average, total, and peak daily agent-hours.
 - Completed turns and active days.
-- Window dates, timezone, and session scope.
+- Provider, window dates, timezone, and session scope.
 - Tracker, methodology, and schema versions.
 
 Human-hours assumptions and Agent Leverage are omitted. Private archives, daily rows, machine names, and session identifiers are rejected.
 
-The board has separate lists for interactive-only and exec-inclusive scores. Each list shows up to 50 recent scores, sorted by hours per day. A new post replaces your current score in that list.
+The board defaults to Codex. Select Claude or Combined (Codex + Claude) to view those scores. Each provider has separate interactive-only and exec-inclusive lists. Each list shows up to 50 recent scores, sorted by hours per day. A new post replaces your current score for that provider and session scope.
+
+Public score schema v1 means Codex. Schema v2 requires `provider` with `codex`, `claude`, or `all`. Both accept only the public aggregate fields. Private archive schema v2 is a different format and is rejected. Generate an export with `agent-hours --provider claude --share --format json`, or select `codex` or `all`. Combined scores add provider runtime. The historical Codex benchmarks do not establish Claude or combined rankings.
 
 Scores cover 30 completed calendar days. When posted, their end date must be yesterday or one of the seven days before yesterday, in the score's timezone. Old scores leave the recent list. Numeric checks reject malformed data, not dishonest claims.
 
 ## Five posts in 30 days
 
-Each GitHub account gets five accepted posts in a rolling 30 × 24-hour window, across both lists. This is not a calendar-month reset.
+Each GitHub account gets five accepted posts in a rolling 30 × 24-hour window, across all providers and session lists. This is not a calendar-month reset.
 
 After the fourth post, the page says you have one left and shows when the next slot opens. After the fifth, you must wait. Each slot opens exactly 30 days after its post was accepted.
 
