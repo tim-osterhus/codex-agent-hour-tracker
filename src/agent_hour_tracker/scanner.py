@@ -55,6 +55,7 @@ class CompletedTurn:
 
     started_at: float
     duration_seconds: float
+    provider: str = "codex"
 
 
 @dataclass(slots=True)

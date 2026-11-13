@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -52,6 +53,11 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as error:
         return int(error.code)
 
+    if arguments.provider is None:
+        arguments.provider = (
+            "all" if arguments.claude_sessions_dir and arguments.sessions_dir
+            else "claude" if arguments.claude_sessions_dir else "codex"
+        )
     if not _validate_arguments(arguments, sys.stderr):
         return 2
 
@@ -89,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
-    scope = "including-exec" if arguments.include_exec else "interactive-only"
+    scope = _report_scope(arguments)
     if arguments.share:
         if arguments.format == "json":
             from .share import render_share_json
@@ -120,7 +126,11 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
     elif arguments.format == "csv":
-        sys.stdout.write(render_csv(report))
+        if arguments.provider == "all":
+            from .report import render_provider_csv
+            sys.stdout.write(render_provider_csv(report, _provider_reports(scan_result, start, end, timezone)))
+        else:
+            sys.stdout.write(render_csv(report))
     else:
         output = render_text(
             report,
@@ -132,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             leverage=leverage,
             monthly=arguments.monthly,
         )
+        output += _render_provider_breakdown(scan_result, start, end, timezone, arguments.provider)
         if len(report_inputs) > 1:
             output += _render_input_breakdown(report_inputs, start, end, timezone, arguments)
         sys.stdout.write(output)
@@ -142,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-hours",
-        description="Report cumulative Codex agent-hours from local session metadata.",
+        description="Report cumulative Codex and Claude Code agent-hours from local timing metadata.",
         epilog="Private account tokens: agent-hours account-usage --help",
     )
     parser.add_argument(
@@ -152,6 +163,10 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Codex sessions directory; repeat to combine roots (default: ~/.codex/sessions)",
     )
+    parser.add_argument("--provider", choices=("codex", "claude", "all"),
+                        default=None, help="provider selection (default: Codex, inferred from explicit roots)")
+    parser.add_argument("--claude-sessions-dir", type=Path, action="append", default=None,
+                        help="Claude Code projects directory; repeat to combine roots (default: $CLAUDE_CONFIG_DIR/projects or ~/.claude/projects)")
     parser.add_argument(
         "--start",
         default=None,
@@ -234,6 +249,15 @@ class _InputError(ValueError):
 
 
 def _validate_arguments(arguments: argparse.Namespace, stderr: TextIO) -> bool:
+    if arguments.share and arguments.provider != "codex":
+        print("error: --share supports only --provider codex; Claude and combined totals are available in local reports", file=stderr)
+        return False
+    if (
+        arguments.provider == "codex" and arguments.claude_sessions_dir
+        or arguments.provider == "claude" and arguments.sessions_dir
+    ):
+        print("error: explicit session roots conflict with --provider; use --provider all to combine both", file=stderr)
+        return False
     if arguments.share and (
         arguments.start is not None
         or arguments.end is not None
@@ -297,63 +321,109 @@ def _validate_arguments(arguments: argparse.Namespace, stderr: TextIO) -> bool:
 
 
 def _resolve_input_dirs(arguments: argparse.Namespace) -> list[Path]:
-    if arguments.sessions_dir is not None:
-        return list(arguments.sessions_dir)
-    if arguments.merge:
-        return []
-    return [Path.home() / ".codex" / "sessions"]
+    """Retain the Codex-only helper for existing callers."""
+    return _resolve_provider_dirs(arguments)["codex"]
+
+
+def _resolve_provider_dirs(arguments: argparse.Namespace) -> dict[str, list[Path]]:
+    directories: dict[str, list[Path]] = {"codex": [], "claude": []}
+    defaults = {
+        "codex": Path.home() / ".codex" / "sessions",
+        "claude": Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "projects",
+    }
+    explicit = {"codex": arguments.sessions_dir, "claude": arguments.claude_sessions_dir}
+    for provider in directories:
+        if arguments.provider not in (provider, "all"):
+            continue
+        if explicit[provider] is not None:
+            directories[provider] = list(explicit[provider])
+        elif not arguments.merge:
+            default = defaults[provider]
+            if arguments.provider != "all" or default.is_dir():
+                directories[provider] = [default]
+    return directories
 
 
 def _load_report_inputs(
     arguments: argparse.Namespace,
 ) -> tuple[ScanResult, list[_ReportInput]]:
-    directories = _resolve_input_dirs(arguments)
+    directories = _resolve_provider_dirs(arguments)
     merge_paths = list(arguments.merge or [])
-    if not directories and not merge_paths:
+    if not any(directories.values()) and not merge_paths:
         raise _InputError("error: no sessions directories or archives were provided")
-    for sessions_dir in directories:
-        if not sessions_dir.is_dir():
-            if arguments.share:
-                raise _InputError(
-                    "error: sessions directory is missing or not a directory"
-                )
-            raise _InputError(
-                "error: sessions directory is missing or not a directory: "
-                f"{sessions_dir}"
-            )
+    for roots in directories.values():
+        for sessions_dir in roots:
+            if not sessions_dir.is_dir():
+                message = "error: sessions directory is missing or not a directory"
+                if not arguments.share:
+                    message += f": {sessions_dir}"
+                raise _InputError(message)
 
-    try:
-        from .archive import ArchiveError, collect_archive, load_archive, merge_archives
-    except ImportError as error:
-        raise _InputError("error: archive support is unavailable") from error
+    from .archive import ArchiveError, collect_archive, load_archive, merge_archives
 
-    if len(directories) == 1 and not merge_paths and not arguments.include_exec:
-        result = scan_sessions(directories[0])
-        return result, [_ReportInput(str(directories[0]), result)]
+    if arguments.provider == "codex" and len(directories["codex"]) == 1 and not merge_paths and not arguments.include_exec:
+        result = scan_sessions(directories["codex"][0])
+        return result, [_ReportInput(str(directories["codex"][0]), result)]
 
     archives: list[dict] = []
     inputs: list[_ReportInput] = []
-    for sessions_dir in directories:
-        try:
-            archive = collect_archive([sessions_dir])
-            result = merge_archives([archive], include_exec=arguments.include_exec)
-        except (ArchiveError, OSError, TypeError, ValueError) as error:
-            raise _InputError("error: unable to scan sessions directory") from error
-        archives.append(archive)
-        inputs.append(_ReportInput(_archive_label(archive, sessions_dir), result))
+    for provider, roots in directories.items():
+        for sessions_dir in roots:
+            try:
+                archive = collect_archive(
+                    [sessions_dir] if provider == "codex" else [],
+                    claude_paths=[sessions_dir] if provider == "claude" else [],
+                )
+                result = merge_archives([archive], include_exec=arguments.include_exec, provider=arguments.provider)
+            except (ArchiveError, OSError, TypeError, ValueError) as error:
+                raise _InputError("error: unable to scan sessions directory") from error
+            archives.append(archive)
+            inputs.append(_ReportInput(f"{provider}: {_archive_label(archive, sessions_dir)}", result))
     for archive_path in merge_paths:
         try:
             archive = load_archive(archive_path)
-            result = merge_archives([archive], include_exec=arguments.include_exec)
+            result = merge_archives([archive], include_exec=arguments.include_exec, provider=arguments.provider)
         except (ArchiveError, OSError, TypeError, ValueError) as error:
             raise _InputError("error: unable to load private archive") from error
         archives.append(archive)
         inputs.append(_ReportInput(_archive_label(archive, archive_path), result))
     try:
-        result = merge_archives(archives, include_exec=arguments.include_exec)
+        result = merge_archives(archives, include_exec=arguments.include_exec, provider=arguments.provider)
     except (ArchiveError, OSError, TypeError, ValueError) as error:
         raise _InputError("error: unable to merge report inputs") from error
     return result, inputs
+
+
+def _report_scope(arguments: argparse.Namespace) -> str:
+    codex_scope = "including-exec" if arguments.include_exec else "interactive-only"
+    if arguments.provider == "codex":
+        return codex_scope
+    if arguments.provider == "claude":
+        return "native-recorded-turns (origin unverified)"
+    return f"Codex {codex_scope} + Claude native-recorded-turns (origin unverified)"
+
+
+def _provider_reports(result: ScanResult, start: date, end: date, timezone: ZoneInfo) -> dict:
+    return {
+        provider: build_report_metrics(
+            [turn for turn in result.turns if turn.provider == provider], start, end, timezone,
+            root_turns=[turn for turn in result.root_turns if turn.provider == provider],
+        )
+        for provider in ("codex", "claude")
+    }
+
+
+def _render_provider_breakdown(result: ScanResult, start: date, end: date, timezone: ZoneInfo, provider: str) -> str:
+    labels = {"codex": "Codex", "claude": "Claude Code", "all": "Codex + Claude Code"}
+    lines = ["", f"Providers: {labels[provider]}"]
+    if provider == "all":
+        lines.append("PROVIDER TOTALS (globally deduplicated within each provider)")
+        for key, report in _provider_reports(result, start, end, timezone).items():
+            lines.append(f"{labels[key]}: {report.total_agent_hours:.2f} agent-hours, {sum(day.completed_turns for day in report.days)} completed turns")
+        lines.append("Combined totals add agent runtime, including concurrent turns across providers.")
+    if provider in ("claude", "all"):
+        lines.append("Claude coverage: native main timers and completed foreground-agent timers only; untimed history and child timers are excluded. Human initiation is unverified.")
+    return "\n".join(lines) + "\n"
 
 
 def _archive_label(archive: dict, fallback: Path) -> str:
@@ -379,22 +449,19 @@ def _resolve_leverage(
 
 
 def _export_archive(arguments: argparse.Namespace, stderr: TextIO) -> int:
-    directories = _resolve_input_dirs(arguments)
-    if not directories:
+    directories = _resolve_provider_dirs(arguments)
+    if not any(directories.values()):
         print("error: --export requires at least one sessions directory", file=stderr)
         return 2
-    for sessions_dir in directories:
-        if not sessions_dir.is_dir():
-            print(
-                "error: sessions directory is missing or not a directory: "
-                f"{sessions_dir}",
-                file=stderr,
-            )
-            return 2
+    for roots in directories.values():
+        for sessions_dir in roots:
+            if not sessions_dir.is_dir():
+                print(f"error: sessions directory is missing or not a directory: {sessions_dir}", file=stderr)
+                return 2
     try:
         from .archive import ArchiveError, collect_archive, write_archive
 
-        archive = collect_archive(directories, label=arguments.label or "")
+        archive = collect_archive(directories["codex"], label=arguments.label or "", claude_paths=directories["claude"])
         write_archive(archive, arguments.export)
     except (ArchiveError, OSError, TypeError, ValueError):
         print("error: unable to write private archive", file=stderr)
@@ -410,7 +477,7 @@ def _render_input_breakdown(
     timezone: ZoneInfo,
     arguments: argparse.Namespace,
 ) -> str:
-    scope = arguments.include_exec
+    scope = _report_scope(arguments)
     lines = [
         "",
         "PRIVATE INPUT BREAKDOWN",
@@ -428,7 +495,7 @@ def _render_input_breakdown(
         lines.append(
             f"{index}. {label}: {report.total_agent_hours:.2f} agent-hours, "
             f"{sum(day.completed_turns for day in report.days)} completed turns, "
-            f"{report.active_days} active days ({'including-exec' if scope else 'interactive-only'})"
+            f"{report.active_days} active days ({scope})"
         )
     return "\n".join(lines) + "\n"
 

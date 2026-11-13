@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Add Claude Code native main and completed foreground-agent timing scans and Codex, Claude, or combined local reports.
+- Add repeatable Claude roots, provider breakdowns, and combined CSV provider columns.
+- Write provider-aware private archive schema v2. Continue reading v1 as Codex and deduplicate copied histories within each provider.
+- Keep public scores and benchmarks Codex-only. Reject Claude or combined `--share` selections.
+- Exclude Claude history without native timing and unverified human initiation from human-root statistics.
+
 ## 0.2.2
 
 - Add `agent-hours account-usage` for private, service-reported ChatGPT account usage JSON and daily CSV.

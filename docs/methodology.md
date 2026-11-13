@@ -85,3 +85,17 @@ The CLI reports malformed candidate lines and affected file counts. It reports i
 - Batch detection is file-level. One batch classification excludes all completed turns in that file under the default scope.
 
 - Malformed records, incomplete turns, unmatched completions, and invalid metadata do not contribute to totals. Diagnostics expose counts, not the discarded content.
+
+## Claude Code coverage
+
+Claude Code uses separate native timing sources. Main-session `system` / `turn_duration` records require finite `durationMs`, a timestamp, and an immutable UUID. Completed foreground-agent summaries require direct `user.toolUseResult` metadata with `status: completed`, `totalDurationMs`, and an agent ID. Their outer completion records require a UUID and timestamp.
+
+The start timestamp is the recorded end minus the native duration. Native durations are retained without the Codex event-gap cap. Child-native sidechain timers are excluded to avoid counting a delegated run through both representations. Async launches without completion timing contribute no runtime. Child-native-only histories are unsupported.
+
+Files without either supported timing source contribute no runtime. The scanner does not estimate durations from transcript gaps, user messages, assistant messages, or filesystem timestamps. Tool and conversation content are structurally skipped without decoding. Only approved direct scalar metadata fields are decoded.
+
+Main-session human initiation is unverified. Native Claude totals may include SDK or headless activity. Main observations have unknown source and contribute to runtime, but not human-initiated top-level statistics. Completed foreground-agent summaries are delegated. Immutable event UUIDs deduplicate copied and forked histories within Claude. Completion UUID plus agent ID distinguishes resumed delegated runs. Provider-scoped identity prevents collisions with Codex.
+
+A parent main timer and its delegated agent summary count as separate agent runtime. Combined totals add completed runtime across providers, including overlap. Provider totals use the same date range and timezone. Public scores and published Codex benchmarks retain their Codex-only interpretation.
+
+Diagnostics report files without a main native timer, files with unverified main origin, ignored child-native timer records, and async launches without completion timing. These coverage counts do not measure missing runtime.

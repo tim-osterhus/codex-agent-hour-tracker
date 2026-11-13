@@ -23,17 +23,23 @@ Pasting a score does not submit it to a server. PNG/SVG generation uses the same
 
 Community posting is a separate, confirmed action. The server accepts this schema with `leverage: null` and links it to the signed-in GitHub login. It checks the date window and numeric bounds, not whether the claimed runtime happened. Interactive-only and exec-inclusive scores have separate boards. See [community rules](community.md).
 
-## Private archive: `agent-hours-archive`, schema version 1
+## Private archive: `agent-hours-archive`, schema version 2
 
 Create with `agent-hours --export reports/machine.agent-hours-private.json --label machine`. Export collects available timing observations across the selected directories, including exec/batch observations. It is not a date-bounded public score.
 
 Scans and exports accept both `.jsonl` and `.jsonl.zst` rollouts. Merge exports created by version 0.2.1 with Agent Hours 0.2.1 or newer. Version 0.2.0 rejects the new `decompression_errors` diagnostic field. Version 0.2.1 still reads older private exports.
 
-The archive contains a methodology version, optional user label, compact observations, and diagnostics. Each observation includes a deterministic hash of the typed turn identifier, start timestamp, duration, timing usability, and source class. It contains no conversation payloads or raw turn identifiers.
+The archive contains a methodology version, optional user label, compact observations, and diagnostics. Each version 2 observation includes `provider` (`codex` or `claude`), a deterministic hash of the typed turn identifier, start timestamp, duration, timing usability, and source class. It contains no conversation payloads or raw turn identifiers.
 
 Retaining the best observation per source class lets a later merge apply source selection before deduplication. It also preserves the independent human-root sample. The merge rejects incompatible versions and malformed data rather than silently reinterpreting them.
 
 Precise timestamps and persistent hashes reveal activity patterns and permit correlation between exports. Hashing does not make this public-safe. Transfer archives only between machines or people you intend to grant this access. Store them under ignored `reports/` paths. Never paste a private archive into the public share studio.
+
+Version 0.3.0 writes schema version 2 and reads version 1 as Codex. Older versions cannot read version 2. Existing Codex hashes remain unchanged. Merge deduplication uses the provider and hash, so a Codex identifier cannot collide with a Claude identifier.
+
+Use `--provider all` to collect or report both providers. Provider selection also filters imported archives. Public score schema version 1 remains Codex-only. The CLI rejects Claude and combined `--share` selections.
+
+Claude observations require main native duration records or completed foreground-agent summaries. Missing timing contributes no runtime. Child-native timers are excluded to prevent duplicate delegated runtime. Diagnostics report coverage gaps and unverified main-session origin. These labels disclose no paths or transcript content.
 
 ## Reproduction
 

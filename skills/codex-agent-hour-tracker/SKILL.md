@@ -1,11 +1,11 @@
 ---
 name: codex-agent-hour-tracker
-description: Measure local Codex agent-hours, merge machine exports, and produce sanitized Agent-Hour Scores.
+description: Measure local Codex and Claude Code agent-hours, merge machine exports, and produce sanitized Agent-Hour Scores.
 ---
 
 # Codex Agent Hour Tracker
 
-Use the installed `agent-hours` CLI, or `uvx codex-agent-hour-tracker`. The package performs the scan. Never read, print, summarize, or upload raw Codex session records.
+Use the installed `agent-hours` CLI, or `uvx codex-agent-hour-tracker`. The package performs the scan. Never read, print, summarize, or upload raw Codex or Claude Code session records.
 
 ## Measurement
 
@@ -16,12 +16,20 @@ Use the installed `agent-hours` CLI, or `uvx codex-agent-hour-tracker`. The pack
 - Human-initiated top-level count, mean, and median describe only the recognized root sample.
 - Use an explicit common `--timezone` for comparisons across machines.
 
+## Claude Code
+
+- Codex remains the default. Use `--provider claude` or `--provider all` for local Claude or combined reports.
+- Repeat `--claude-sessions-dir PATH` for explicit Claude project roots. Default discovery uses `$CLAUDE_CONFIG_DIR/projects` or `~/.claude/projects`.
+- Count only native main timers and completed foreground-agent timers. Child-native-only and async histories without completion timing are excluded. Never infer runtime or human initiation from transcript content.
+- Combined totals add provider runtime, including overlap. Use provider subtotals rather than comparing combined totals with Codex benchmarks.
+- Public `--share` supports only Codex. Never relabel Claude or combined totals as a Codex score.
+
 ## Profiles and machines
 
 - Repeat `--sessions-dir PATH` for multiple local Codex profiles.
-- When the user asks for multiple-machine totals, use `--export reports/NAME.agent-hours-private.json --label NAME` on each authorized machine.
+- When the user asks for multiple-machine totals, use `--provider all --export reports/NAME.agent-hours-private.json --label NAME` on each authorized machine.
 - Transfer only those private timing exports through an authorized channel. Never transfer raw session data.
-- Merge with repeated `--merge FILE`. Let the package deduplicate identifiers; never add separately calculated totals and assume there is no overlap.
+- Merge with `--provider all` and repeated `--merge FILE`. Let the package deduplicate identifiers; never add separately calculated totals and assume there is no overlap.
 - Private exports contain precise timing metadata and persistent hashed identifiers. Keep them private under ignored `reports/` paths.
 - Do not inspect credentials or infer account attribution. Accounts sharing a directory cannot be separated reliably.
 

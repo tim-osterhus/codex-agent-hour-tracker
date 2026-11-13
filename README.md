@@ -1,6 +1,6 @@
 # Agent Hours
 
-Agent Hours is a local CLI that measures cumulative Codex agent-hours from completed turns.
+Agent Hours is a local CLI that measures cumulative Codex and Claude Code agent-hours from recorded turn timing.
 
 See your runtime across profiles and machines, calculate optional Agent Leverage, and make a share card at [agenthours.dev](https://agenthours.dev).
 
@@ -16,7 +16,7 @@ The score is mean cumulative runtime across the 30 most recent completed local c
 
 If today is March 1 in a non-leap year, the window is January 30 through February 28. Custom date ranges produce reports, not canonical scores.
 
-The default `interactive-only` scope excludes exec/batch files. It includes delegated turns and non-batch turns with uncertain source metadata. Use `--include-exec` to count exec/batch work as well. Every score states its scope.
+The default Codex `interactive-only` scope excludes exec/batch files. It includes delegated turns and non-batch turns with uncertain source metadata. Use `--include-exec` to count exec/batch work as well. Every score states its scope.
 
 ## Install once
 
@@ -33,6 +33,44 @@ codex-agent-hour-tracker --share
 ```
 
 Both command names invoke the same tool. Upgrade an existing uv installation with `uv tool upgrade codex-agent-hour-tracker`.
+
+## Claude Code and combined reports
+
+Codex remains the default. Select Claude Code or combine both providers:
+
+```bash
+agent-hours --provider claude
+agent-hours --provider all --monthly
+agent-hours --provider all --sessions-dir ~/.codex/sessions --claude-sessions-dir ~/.claude/projects
+```
+
+Both directory options are repeatable. Explicit Claude roots select Claude when `--provider` is omitted. Supplying both root options selects both providers.
+
+Claude discovery uses `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects` when the variable is unset. Combined discovery skips missing default roots. Explicit missing roots produce errors.
+
+Claude main totals use native `system` / `turn_duration` records with `durationMs`, a timestamp, and an immutable UUID. Delegated totals use completed foreground-agent summaries with `totalDurationMs`, agent ID, completion UUID, and timestamp. The start is the recorded end minus the native duration. Async launches and histories without either timing source contribute no runtime. Child-native timers are excluded to avoid counting the same delegated run twice. Transcript gaps, prompts, and assistant timestamps never supply estimated durations. Claude main-session human initiation is unverified, so those turns do not enter human-initiated statistics. Claude native totals may include SDK or headless activity because origin cannot be verified.
+
+Combined reports show provider subtotals and add concurrent runtime across both providers. Combined CSV appends provider hours and turn counts to the aggregate columns. Single-provider CSV retains the existing three columns.
+
+Public `--share` output and published benchmarks remain Codex-only. Claude and combined selections support local text, CSV, and private timing exports.
+
+For four machines, run this export on each machine with a distinct label and filename:
+
+```bash
+agent-hours --provider all --export reports/machine1.agent-hours-private.json --label machine1
+```
+
+Privately transfer the four archives, then combine them:
+
+```bash
+agent-hours --provider all --timezone Pacific/Honolulu --monthly \
+  --merge reports/machine1.agent-hours-private.json \
+  --merge reports/machine2.agent-hours-private.json \
+  --merge reports/machine3.agent-hours-private.json \
+  --merge reports/machine4.agent-hours-private.json
+```
+
+Use the same imports with `--provider codex` or `--provider claude` for separate totals. Merge-only commands do not scan local defaults. Copied histories are deduplicated within each provider. Keep archives private. See [export contracts](docs/exports.md).
 
 ## Private ChatGPT account usage
 

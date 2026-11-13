@@ -8,7 +8,7 @@ from datetime import date, tzinfo
 
 from .metrics import DailyStat, LeverageMetrics, ReportMetrics, monthly_breakdown
 
-__all__ = ["render_csv", "render_monthly", "render_share", "render_text"]
+__all__ = ["render_csv", "render_monthly", "render_provider_csv", "render_share", "render_text"]
 
 
 def render_text(
@@ -219,3 +219,17 @@ def _render_leverage_lines(leverage: LeverageMetrics, day_count: int) -> tuple[s
     else:
         lines += (f"Human-hours basis: reported period ({leverage.human_hours:.2f} h)",)
     return lines
+
+
+def render_provider_csv(report: ReportMetrics, providers: dict[str, ReportMetrics]) -> str:
+    """Render combined daily totals beside provider-specific runtime."""
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(("date", "agent_hours", "completed_turns", "codex_agent_hours", "codex_completed_turns", "claude_agent_hours", "claude_completed_turns"))
+    for index, day in enumerate(report.days):
+        codex = providers["codex"].days[index]
+        claude = providers["claude"].days[index]
+        writer.writerow((day.date.isoformat(), f"{day.agent_hours:.6f}", day.completed_turns,
+                         f"{codex.agent_hours:.6f}", codex.completed_turns,
+                         f"{claude.agent_hours:.6f}", claude.completed_turns))
+    return buffer.getvalue()
