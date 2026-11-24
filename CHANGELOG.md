@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Add `agent-hours usage` for private daily token and measured-hours reports for Antigravity and Muse Code. Read retained local journals for Muse Code and show available results when a provider's data is missing.
+- Add `agent-hours google-usage` as an Antigravity-only alias.
+
 ## 0.3.0
 
 - Add Claude Code native main and completed foreground-agent timing scans and Codex, Claude, or combined local reports.
