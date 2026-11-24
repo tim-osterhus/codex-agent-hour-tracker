@@ -200,7 +200,9 @@ def _model_call(line: bytes, event: int, stamp: int, result: MuseUsage) -> _Mode
     usage = _field(line, b"usage", event)
     model = _string(line, b"model", event)
     tokens = None
-    if usage is not None:
+    if usage is None:
+        result.unsupported += 1
+    else:
         input_tokens = _number(line, b"input_tokens", usage)
         output_tokens = _number(line, b"output_tokens", usage)
         total = _number(line, b"total_tokens", usage)

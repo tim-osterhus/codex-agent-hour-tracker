@@ -1,12 +1,15 @@
+import io
 import json
 import shutil
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+from agent_hour_tracker.cli import main
 from agent_hour_tracker.muse_usage import scan_muse
 
 _DAY = date(2026, 11, 18)
@@ -61,6 +64,13 @@ class MuseUsageTests(unittest.TestCase):
         log.parent.mkdir(parents=True)
         log.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
         return log
+
+    def _report(self):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            status = main(["usage", "--provider", "muse", "--muse-sessions-dir", str(self.root),
+                           "--start", _DAY.isoformat(), "--end", _DAY.isoformat(), "--timezone", "UTC"])
+        return status, out.getvalue(), err.getvalue()
 
     def test_counts_each_model_use_once_and_sums_parallel_agent_intervals(self):
         all_tokens = {"input_tokens": 100, "output_tokens": 20, "cached_tokens": 90,
@@ -121,6 +131,33 @@ class MuseUsageTests(unittest.TestCase):
         result = scan_muse([self.root], ZoneInfo("Pacific/Honolulu"))
         self.assertEqual(result.tokens, {_DAY: 42})
         self.assertEqual(result.hours, {date(2026, 11, 17): 0.5, _DAY: 0.5})
+
+    def test_model_without_usage_reports_unavailable_tokens_and_keeps_hours(self):
+        model = _model("2026-11-18T08:30:00Z", "run", "missing", duration=1_800_000)
+        del model["payload"]["event"]["usage"]
+        self._log("missing", [model])
+
+        status, out, err = self._report()
+        self.assertEqual(status, 1)
+        self.assertIn("Tokens: unavailable", out)
+        self.assertIn("Measured agent hours: 0.5000", out)
+        self.assertIn("no Muse Code tokens read; skipped 1", err)
+
+    def test_model_without_usage_warns_when_another_log_has_token_counts(self):
+        model = _model("2026-11-18T08:30:00Z", "run", "missing", duration=1_800_000)
+        del model["payload"]["event"]["usage"]
+        self._log("missing", [model])
+        self._log("counted", [
+            _model("2026-11-18T09:30:00Z", "run", "counted", tokens={"total_tokens": 42},
+                   duration=1_800_000),
+        ])
+
+        status, out, err = self._report()
+        self.assertEqual(status, 0)
+        self.assertIn("Tokens: 42 total", out)
+        self.assertIn("Measured agent hours: 1.0000", out)
+        self.assertIn("warning: skipped 1", err)
+        self.assertIn("Muse Code totals are partial", err)
 
     def test_keeps_token_records_with_missing_timing_and_skips_unsupported_or_invalid_metadata(self):
         log = self._log("session", [

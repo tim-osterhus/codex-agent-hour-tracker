@@ -6,7 +6,7 @@ import subprocess
 import sys
 import types
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from datetime import UTC, date, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -47,7 +47,7 @@ class GoogleUsageTests(unittest.TestCase):
             conversations = root / "conversations"
             conversations.mkdir()
             original = conversations / "a.db"
-            with sqlite3.connect(original) as db:
+            with closing(sqlite3.connect(original)) as db, db:
                 db.executescript(
                     "CREATE TABLE trajectory_meta(trajectory_id TEXT);"
                     "INSERT INTO trajectory_meta VALUES ('one');"
