@@ -8,7 +8,7 @@ import json
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -24,6 +24,12 @@ _PROVIDERS = {"antigravity": "Antigravity", "muse": "Muse Code"}
 class Usage:
     tokens: dict[date, int] | None
     hours: dict[date, float]
+    missing_token_days: set[date] = field(default_factory=set)
+
+    def tokens_on(self, day: date) -> int | None:
+        if self.tokens is None:
+            return None
+        return self.tokens.get(day, None if day in self.missing_token_days else 0)
 
 
 def _token_usage(executable: str, start: date, end: date, timezone: ZoneInfo) -> dict[date, int]:
@@ -62,8 +68,7 @@ def _print_csv(results: dict[str, Usage], dates: list[date]) -> None:
     for day in dates:
         row: list[object] = [day.isoformat()]
         for result in results.values():
-            row.extend((result.tokens.get(day, 0) if result.tokens is not None else None,
-                        result.hours.get(day)))
+            row.extend((result.tokens_on(day), result.hours.get(day)))
         writer.writerow(row)
 
 
@@ -82,7 +87,8 @@ def _print_text(results: dict[str, Usage], dates: list[date], timezone: ZoneInfo
             print("Measured agent hours: unavailable")
         print(f"{'Date':<12} {'Tokens':>16} {'Measured hours':>16}")
         for day in dates:
-            tokens = f"{result.tokens.get(day, 0):,}" if result.tokens is not None else "n/a"
+            count = result.tokens_on(day)
+            tokens = f"{count:,}" if count is not None else "n/a"
             hours = f"{result.hours[day]:.4f}" if day in result.hours else "n/a"
             print(f"{day.isoformat():<12} {tokens:>16} {hours:>16}")
     if len(results) > 1:
@@ -110,10 +116,10 @@ def _muse_usage(roots: list[Path] | None, timezone: ZoneInfo, start: date, end: 
     except (ImportError, OSError, ValueError):
         print("error: unable to read Muse Code session logs", file=sys.stderr)
         return Usage(None, {}), True
-    unsupported = getattr(scan, "unsupported", 0)
-    skipped = scan.unreadable + unsupported
+    skipped = scan.unreadable + scan.unsupported
     hours = {day: value for day, value in scan.hours.items() if start <= day <= end}
-    tokens: dict[date, int] | None = {day: value for day, value in scan.tokens.items() if start <= day <= end}
+    tokens = {day: value for day, value in scan.tokens.items() if start <= day <= end}
+    missing = {day: count for day, count in scan.missing_tokens.items() if start <= day <= end}
     if not scan.files_scanned:
         if scan.unreadable:
             print("error: unable to read Muse Code session logs", file=sys.stderr)
@@ -121,14 +127,15 @@ def _muse_usage(roots: list[Path] | None, timezone: ZoneInfo, start: date, end: 
         print("warning: no retained Muse Code session logs found; Muse Code tokens are unavailable",
               file=sys.stderr)
         return Usage(None, hours), False
-    if skipped and not scan.tokens:
-        print(f"error: no Muse Code tokens read; skipped {skipped} unreadable or unsupported "
+    skipped_in_report = skipped + sum(missing.values())
+    if (missing and not tokens) or (skipped and not scan.tokens):
+        print(f"error: no Muse Code tokens read; skipped {skipped_in_report} unreadable, unsupported, or incomplete "
               "inputs or records", file=sys.stderr)
         return Usage(None, hours), True
-    if skipped:
-        print(f"warning: skipped {skipped} unreadable or unsupported Muse Code inputs or records; "
+    if skipped_in_report:
+        print(f"warning: skipped {skipped_in_report} unreadable, unsupported, or incomplete Muse Code inputs or records; "
               "Muse Code totals are partial", file=sys.stderr)
-    return Usage(tokens, hours), False
+    return Usage(tokens, hours, set(missing)), False
 
 
 def main(argv: list[str], *, combined: bool = False) -> int:

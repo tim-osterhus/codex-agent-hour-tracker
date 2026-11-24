@@ -36,6 +36,7 @@ Identity = tuple[bytes, bytes]
 class MuseUsage:
     tokens: dict[date, int] = field(default_factory=dict)
     hours: dict[date, float] = field(default_factory=dict)
+    missing_tokens: dict[date, int] = field(default_factory=dict)
     unreadable: int = 0
     unsupported: int = 0
     files_scanned: int = 0
@@ -74,7 +75,9 @@ def scan_muse(roots: list[Path] | None, timezone: ZoneInfo) -> MuseUsage:
     work_by_run: dict[bytes, list[Interval]] = defaultdict(list)
     for (run, _), call in models.items():
         day = _as_datetime(call.end, timezone).date()
-        if call.tokens is not None:
+        if call.tokens is None:
+            result.missing_tokens[day] = result.missing_tokens.get(day, 0) + 1
+        else:
             result.tokens[day] = result.tokens.get(day, 0) + call.tokens
         if call.duration_ms is not None:
             start = call.end - call.duration_ms * 1000
@@ -162,7 +165,7 @@ def _scan_file(
             if not source:
                 result.unreadable += 1
                 continue
-            call = _model_call(line, event, stamp, result)
+            call = _model_call(line, event, stamp)
             key = run, source
             previous = models.get(key)
             if previous is None or call.end < previous.end:
@@ -196,25 +199,18 @@ def _scan_file(
             tools[key] = start, stamp
 
 
-def _model_call(line: bytes, event: int, stamp: int, result: MuseUsage) -> _ModelCall:
+def _model_call(line: bytes, event: int, stamp: int) -> _ModelCall:
     usage = _field(line, b"usage", event)
-    model = _string(line, b"model", event)
     tokens = None
-    if usage is None:
-        result.unsupported += 1
-    else:
-        input_tokens = _number(line, b"input_tokens", usage)
-        output_tokens = _number(line, b"output_tokens", usage)
-        total = _number(line, b"total_tokens", usage)
-        if total is not None:
-            tokens = total
-        elif model and model.startswith(b"muse-") and input_tokens is not None and output_tokens is not None:
+    if usage is not None:
+        tokens = _number(line, b"total_tokens", usage)
+        model = _string(line, b"model", event)
+        if tokens is None and model and model.startswith(b"muse-"):
             # Meta counts cached input and reasoning output inside the respective totals.
-            tokens = input_tokens + output_tokens
-        elif input_tokens is not None and output_tokens is not None:
-            result.unsupported += 1
-        else:
-            result.unreadable += 1
+            input_tokens = _number(line, b"input_tokens", usage)
+            output_tokens = _number(line, b"output_tokens", usage)
+            if input_tokens is not None and output_tokens is not None:
+                tokens = input_tokens + output_tokens
     duration_ms = _number(line, b"duration_ms", event)
     return _ModelCall(stamp, tokens, duration_ms)
 

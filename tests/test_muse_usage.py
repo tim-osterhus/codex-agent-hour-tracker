@@ -1,3 +1,4 @@
+import csv
 import io
 import json
 import shutil
@@ -65,11 +66,12 @@ class MuseUsageTests(unittest.TestCase):
         log.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
         return log
 
-    def _report(self):
+    def _report(self, start=_DAY, end=_DAY, output_format="text"):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             status = main(["usage", "--provider", "muse", "--muse-sessions-dir", str(self.root),
-                           "--start", _DAY.isoformat(), "--end", _DAY.isoformat(), "--timezone", "UTC"])
+                           "--start", start.isoformat(), "--end", end.isoformat(), "--timezone", "UTC",
+                           "--format", output_format])
         return status, out.getvalue(), err.getvalue()
 
     def test_counts_each_model_use_once_and_sums_parallel_agent_intervals(self):
@@ -143,6 +145,40 @@ class MuseUsageTests(unittest.TestCase):
         self.assertIn("Measured agent hours: 0.5000", out)
         self.assertIn("no Muse Code tokens read; skipped 1", err)
 
+        day_before = date(2026, 11, 17)
+        status, out, err = self._report(day_before, day_before)
+        self.assertEqual((status, err), (0, ""))
+        self.assertIn("Tokens: 0 total", out)
+
+    def test_missing_tokens_are_scoped_to_the_requested_completion_dates(self):
+        day_before = date(2026, 11, 17)
+        missing = _model("2026-11-18T08:30:00Z", "run", "missing", duration=1_800_000)
+        del missing["payload"]["event"]["usage"]
+        self._log("session", [
+            _model("2026-11-17T08:30:00Z", "run", "counted", tokens={"total_tokens": 100},
+                   duration=1_800_000),
+            missing,
+        ])
+        self._log("copy", [missing])
+
+        status, out, err = self._report()
+        self.assertEqual(status, 1)
+        self.assertIn("Tokens: unavailable", out)
+        self.assertIn("Measured agent hours: 0.5000", out)
+        self.assertIn("no Muse Code tokens read; skipped 1", err)
+
+        status, out, err = self._report(day_before, _DAY, "csv")
+        self.assertEqual(status, 0)
+        self.assertIn("warning: skipped 1", err)
+        self.assertEqual(list(csv.DictReader(io.StringIO(out))), [
+            {"date": "2026-11-17", "muse_tokens": "100", "muse_measured_agent_hours": "0.5"},
+            {"date": "2026-11-18", "muse_tokens": "", "muse_measured_agent_hours": "0.5"},
+        ])
+
+        status, out, err = self._report(day_before, day_before)
+        self.assertEqual((status, err), (0, ""))
+        self.assertIn("Tokens: 100 total", out)
+
     def test_model_without_usage_warns_when_another_log_has_token_counts(self):
         model = _model("2026-11-18T08:30:00Z", "run", "missing", duration=1_800_000)
         del model["payload"]["event"]["usage"]
@@ -172,4 +208,5 @@ class MuseUsageTests(unittest.TestCase):
         result = scan_muse([self.root], ZoneInfo("UTC"))
         self.assertEqual(result.tokens, {_DAY: 11})
         self.assertEqual(result.hours, {})
-        self.assertEqual((result.unreadable, result.unsupported), (2, 2))
+        self.assertEqual(result.missing_tokens, {_DAY: 1})
+        self.assertEqual((result.unreadable, result.unsupported), (2, 1))

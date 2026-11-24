@@ -130,7 +130,8 @@ def fake_muse(**scan):
 
     def scan_muse(roots, timezone):
         calls.append((roots, timezone))
-        return types.SimpleNamespace(**{"tokens": {}, "hours": {}, "unreadable": 0, "files_scanned": 1, **scan})
+        return types.SimpleNamespace(**{"tokens": {}, "hours": {}, "missing_tokens": {},
+                                        "unreadable": 0, "unsupported": 0, "files_scanned": 1, **scan})
 
     module = types.ModuleType("agent_hour_tracker.muse_usage")
     module.scan_muse = scan_muse
