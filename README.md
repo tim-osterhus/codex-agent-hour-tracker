@@ -1,6 +1,6 @@
 # Agent Hours
 
-Agent Hours is a local CLI that measures cumulative Codex and Claude Code agent-hours from recorded turn timing.
+Agent Hours is a local CLI that measures Codex and Claude Code agent-hours. It also reports local token counts and measured runtime for Antigravity and Muse Code.
 
 See your runtime across profiles and machines, calculate optional Agent Leverage, and make a share card at [agenthours.dev](https://agenthours.dev).
 
@@ -71,6 +71,34 @@ agent-hours --provider all --timezone Pacific/Honolulu --monthly \
 ```
 
 Use the same imports with `--provider codex` or `--provider claude` for separate totals. Merge-only commands do not scan local defaults. Copied histories are deduplicated within each provider. Keep archives private. See [export contracts](docs/exports.md).
+
+## Antigravity
+
+Install [ccusage](https://ccusage.com/guide/installation) v20.0.51 or later for local token counts, including cached tokens. Agent Hours runs it offline. The command defaults to the last 30 completed days.
+
+```bash
+npm install -g ccusage
+agent-hours google-usage
+agent-hours usage --provider antigravity --format csv --timezone Pacific/Honolulu
+```
+
+Use `--ccusage EXECUTABLE` if ccusage is outside your PATH. Set `ANTIGRAVITY_DATA_DIR` for a custom data root. Keep daily reports private.
+
+Antigravity hours come from recorded generation and execution intervals in local conversation database metadata. Overlapping intervals count once within a conversation, and separate conversations add independently. Each interval is attributed to its start date. Missing timing is displayed as unavailable (a blank CSV cell). These hours are separate from the public Agent-Hour Score.
+
+## Muse Code and combined usage
+
+`agent-hours usage` reports Antigravity and Muse Code in one private report. The `google-usage` alias reports Antigravity alone. Use repeatable `--muse-sessions-dir PATH` to specify existing Muse Code session roots, or omit it to use default Muse Code session discovery.
+
+```bash
+agent-hours usage --provider muse
+agent-hours usage --provider muse --muse-sessions-dir ~/private/muse-sessions --format csv
+agent-hours usage --provider all
+```
+
+Muse Code runs without ccusage. With `--provider all`, missing ccusage makes Antigravity and combined token totals unavailable. The report still shows Muse Code usage and available measured hours, and the command exits with status 1. A failed token read for any requested provider also exits with status 1.
+
+Muse Code figures come from retained local session logs. Measured hours cover recorded model and tool execution. The report shows Muse Code tokens as unavailable when it finds no readable logs. Skipped or unsupported records produce a partial-coverage warning. [Meta's session audit guide](https://dev.meta.ai/docs/cookbook/audit-agent-sessions)
 
 ## Private ChatGPT account usage
 

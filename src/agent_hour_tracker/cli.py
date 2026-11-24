@@ -47,6 +47,11 @@ def main(argv: list[str] | None = None) -> int:
 
         return account_usage_main(argv[1:])
 
+    if argv and argv[0] in ("google-usage", "usage"):
+        from .google_usage import main as usage_main
+
+        return usage_main(argv[1:], combined=argv[0] == "usage")
+
     parser = _build_parser()
     try:
         arguments = parser.parse_args(argv)
@@ -156,7 +161,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-hours",
         description="Report cumulative Codex and Claude Code agent-hours from local timing metadata.",
-        epilog="Private account tokens: agent-hours account-usage --help",
+        epilog=("Private account tokens: agent-hours account-usage --help. "
+                "Antigravity and Muse Code: agent-hours usage --help."),
     )
     parser.add_argument(
         "--sessions-dir",
